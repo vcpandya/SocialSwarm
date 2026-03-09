@@ -51,20 +51,72 @@ class OasisAgentProfile:
     profession: Optional[str] = None
     interested_topics: List[str] = field(default_factory=list)
     
+    # Regional/cultural dimensions
+    region: str = ""  # Geographic region (e.g., "Maharashtra", "Texas", "Guangdong")
+    language_preference: str = ""  # Primary language (e.g., "Hindi", "English", "Hinglish")
+    urban_rural: str = ""  # "urban", "suburban", "rural"
+
+    # India-specific dimensions
+    caste_community: str = ""  # Social community context (e.g., "General", "OBC", "SC", "ST")
+    religion: str = ""  # Religious background if relevant to simulation
+    education_medium: str = ""  # "English medium", "Hindi medium", "Regional medium"
+    income_bracket: str = ""  # "low", "middle", "upper-middle", "high"
+
+    # US-specific dimensions
+    political_leaning: str = ""  # "progressive", "moderate", "conservative", "libertarian"
+    media_diet: str = ""  # "mainstream", "social-media-first", "alternative", "mixed"
+    generation: str = ""  # "gen-z", "millennial", "gen-x", "boomer"
+    ethnicity: str = ""  # Cultural background if relevant to simulation
+
     # Source entity information
     source_entity_uuid: Optional[str] = None
     source_entity_type: Optional[str] = None
     
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     
+    def _build_cultural_context_snippet(self) -> str:
+        """Build a short cultural/regional context string to append to persona text."""
+        parts = []
+        if self.region:
+            parts.append(f"from {self.region}")
+        if self.urban_rural:
+            parts.append(f"{self.urban_rural} area")
+        if self.language_preference:
+            parts.append(f"primarily communicates in {self.language_preference}")
+        if self.income_bracket:
+            parts.append(f"{self.income_bracket} income bracket")
+        if self.generation:
+            parts.append(f"{self.generation}")
+        if self.political_leaning and self.political_leaning != "apolitical":
+            parts.append(f"politically {self.political_leaning}")
+        if self.media_diet:
+            parts.append(f"{self.media_diet} media consumer")
+        if self.religion:
+            parts.append(f"{self.religion} background")
+        if self.caste_community:
+            parts.append(f"{self.caste_community} community")
+        if self.education_medium:
+            parts.append(f"{self.education_medium} educated")
+        if self.ethnicity:
+            parts.append(f"{self.ethnicity} heritage")
+        if not parts:
+            return ""
+        return " Cultural context: " + ", ".join(parts) + "."
+
     def to_reddit_format(self) -> Dict[str, Any]:
         """Convert to Reddit platform format"""
+        # Weave cultural dimensions into persona text
+        persona_text = self.persona
+        cultural_snippet = self._build_cultural_context_snippet()
+        if cultural_snippet:
+            persona_text = persona_text + cultural_snippet
+
         profile = {
             "user_id": self.user_id,
             "username": self.user_name,  # OASIS library requires field name as username (no underscore)
             "name": self.name,
             "bio": self.bio,
-            "persona": self.persona,
+            "persona": persona_text,
             "karma": self.karma,
             "created_at": self.created_at,
         }
@@ -82,17 +134,23 @@ class OasisAgentProfile:
             profile["profession"] = self.profession
         if self.interested_topics:
             profile["interested_topics"] = self.interested_topics
-        
+
         return profile
     
     def to_twitter_format(self) -> Dict[str, Any]:
         """Convert to Twitter platform format"""
+        # Weave cultural dimensions into persona text
+        persona_text = self.persona
+        cultural_snippet = self._build_cultural_context_snippet()
+        if cultural_snippet:
+            persona_text = persona_text + cultural_snippet
+
         profile = {
             "user_id": self.user_id,
             "username": self.user_name,  # OASIS library requires field name as username (no underscore)
             "name": self.name,
             "bio": self.bio,
-            "persona": self.persona,
+            "persona": persona_text,
             "friend_count": self.friend_count,
             "follower_count": self.follower_count,
             "statuses_count": self.statuses_count,
@@ -112,17 +170,23 @@ class OasisAgentProfile:
             profile["profession"] = self.profession
         if self.interested_topics:
             profile["interested_topics"] = self.interested_topics
-        
+
         return profile
     
     def to_whatsapp_format(self) -> Dict[str, Any]:
         """Convert to WhatsApp platform format (uses Reddit under the hood with WhatsApp-specific fields)"""
+        # Weave cultural dimensions into persona text
+        persona_text = self.persona
+        cultural_snippet = self._build_cultural_context_snippet()
+        if cultural_snippet:
+            persona_text = persona_text + cultural_snippet
+
         profile = {
             "user_id": self.user_id,
             "username": self.user_name,
             "name": self.name,
             "bio": self.bio,
-            "persona": self.persona,
+            "persona": persona_text,
             "phone_prefix": "+91" if self.country == "India" else "+1",
             "group_member": True,
             "created_at": self.created_at,
@@ -146,7 +210,7 @@ class OasisAgentProfile:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to full dictionary format"""
-        return {
+        result = {
             "user_id": self.user_id,
             "user_name": self.user_name,
             "name": self.name,
@@ -162,10 +226,24 @@ class OasisAgentProfile:
             "country": self.country,
             "profession": self.profession,
             "interested_topics": self.interested_topics,
+            # Regional/cultural dimensions
+            "region": self.region,
+            "language_preference": self.language_preference,
+            "urban_rural": self.urban_rural,
+            "income_bracket": self.income_bracket,
+            "caste_community": self.caste_community,
+            "religion": self.religion,
+            "education_medium": self.education_medium,
+            "political_leaning": self.political_leaning,
+            "media_diet": self.media_diet,
+            "generation": self.generation,
+            "ethnicity": self.ethnicity,
+            # Source entity information
             "source_entity_uuid": self.source_entity_uuid,
             "source_entity_type": self.source_entity_type,
             "created_at": self.created_at,
         }
+        return result
 
 
 class OasisProfileGenerator:
@@ -297,6 +375,19 @@ class OasisProfileGenerator:
             country=profile_data.get("country"),
             profession=profile_data.get("profession"),
             interested_topics=profile_data.get("interested_topics", []),
+            # Regional/cultural dimensions
+            region=profile_data.get("region", ""),
+            language_preference=profile_data.get("language_preference", ""),
+            urban_rural=profile_data.get("urban_rural", ""),
+            income_bracket=profile_data.get("income_bracket", ""),
+            caste_community=profile_data.get("caste_community", ""),
+            religion=profile_data.get("religion", ""),
+            education_medium=profile_data.get("education_medium", ""),
+            political_leaning=profile_data.get("political_leaning", ""),
+            media_diet=profile_data.get("media_diet", ""),
+            generation=profile_data.get("generation", ""),
+            ethnicity=profile_data.get("ethnicity", ""),
+            # Source entity information
             source_entity_uuid=entity.uuid,
             source_entity_type=entity_type,
         )
@@ -736,12 +827,26 @@ Please generate JSON with the following fields:
    - Stances and viewpoints (attitude toward topics, content that may provoke or move them)
    - Unique characteristics (catchphrases, special experiences, personal hobbies)
    - Personal memory (important part of the persona: describe this individual's connection to events, and their existing actions and reactions in the events)
+   - Regional and cultural context (weave naturally into the narrative above)
 3. age: Age as a number (must be an integer)
 4. gender: Gender, must be in English: "male" or "female"
 5. mbti: MBTI type (e.g., INTJ, ENFP, etc.)
-6. country: Country (e.g., "China", "United States")
+6. country: Country (e.g., "China", "United States", "India")
 7. profession: Profession
 8. interested_topics: Array of topics of interest
+
+Regional and Cultural Dimensions (generate appropriate values based on the entity's country and context):
+9. region: Specific geographic region (state/province — e.g., "Maharashtra", "Texas", "Guangdong")
+10. language_preference: Primary communication language (e.g., "Hindi", "English", "Hinglish", "Mandarin")
+11. urban_rural: One of "urban", "suburban", or "rural"
+12. income_bracket: One of "low", "middle", "upper-middle", or "high"
+13. political_leaning: Political orientation if relevant — "progressive", "moderate", "conservative", "libertarian", or "apolitical"
+14. media_diet: Primary information sources — "mainstream", "social-media-first", "alternative", or "mixed"
+15. generation: Age-based generation — "gen-z", "millennial", "gen-x", or "boomer"
+16. caste_community: (India-specific) Social community context if relevant — e.g., "General", "OBC", "SC", "ST", or "" if not applicable
+17. religion: Religious background if relevant to the simulation context, or "" if not applicable
+18. education_medium: (India-specific) Medium of education — "English medium", "Hindi medium", "Regional medium", or "" if not applicable
+19. ethnicity: (US-specific) Cultural background if relevant — e.g., "African American", "Hispanic", "Asian American", "White", or "" if not applicable
 
 Important:
 - All field values must be strings or numbers, do not use newline characters
@@ -749,6 +854,7 @@ Important:
 - Use English for all fields
 - Content must be consistent with entity information
 - age must be a valid integer, gender must be "male" or "female"
+- For regional/cultural fields: generate values appropriate to the entity's country. Leave country-specific fields as "" when they don't apply (e.g., caste_community="" for US entities, ethnicity="" for India entities)
 """
 
     def _build_group_persona_prompt(
@@ -785,19 +891,30 @@ Please generate JSON with the following fields:
    - Stance and attitude (official position on core topics, approach to handling controversies)
    - Special notes (group demographics represented, operational habits)
    - Institutional memory (important part of the persona: describe this institution's connection to events, and its existing actions and reactions in the events)
+   - Regional and cultural context (weave naturally into the narrative above)
 3. age: Fixed at 30 (virtual age for institutional accounts)
 4. gender: Fixed as "other" (institutional accounts use "other" to indicate non-individual)
 5. mbti: MBTI type, used to describe account style, e.g., ISTJ for rigorous and conservative
-6. country: Country (e.g., "China", "United States")
+6. country: Country (e.g., "China", "United States", "India")
 7. profession: Institutional function description
 8. interested_topics: Array of areas of focus
+
+Regional and Cultural Dimensions (generate appropriate values based on the institution's country and context):
+9. region: Specific geographic region where the institution is based (e.g., "Maharashtra", "Washington D.C.", "Beijing")
+10. language_preference: Primary communication language of the institution
+11. urban_rural: One of "urban", "suburban", or "rural"
+12. income_bracket: Socioeconomic bracket of the institution's primary audience — "low", "middle", "upper-middle", or "high"
+13. political_leaning: Institutional political orientation if relevant — "progressive", "moderate", "conservative", "libertarian", or "apolitical"
+14. media_diet: Primary information dissemination channels — "mainstream", "social-media-first", "alternative", or "mixed"
+15. generation: Primary target audience generation — "gen-z", "millennial", "gen-x", "boomer", or "multi-generational"
 
 Important:
 - All field values must be strings or numbers, null values not allowed
 - persona must be a coherent text description, do not use newline characters
 - Use English for all fields (gender must be "other")
 - age must be integer 30, gender must be string "other"
-- Institutional account communication must align with its identity and positioning"""
+- Institutional account communication must align with its identity and positioning
+- For regional/cultural fields: generate values appropriate to the institution's country. Leave country-specific fields as "" when they don't apply"""
     
     def _generate_profile_rule_based(
         self,
@@ -1044,6 +1161,32 @@ Important:
         # Build full output content (no truncation)
         topics_str = ', '.join(profile.interested_topics) if profile.interested_topics else 'None'
         
+        # Build cultural dimensions line
+        cultural_parts = []
+        if profile.region:
+            cultural_parts.append(f"Region: {profile.region}")
+        if profile.language_preference:
+            cultural_parts.append(f"Lang: {profile.language_preference}")
+        if profile.urban_rural:
+            cultural_parts.append(f"Setting: {profile.urban_rural}")
+        if profile.generation:
+            cultural_parts.append(f"Gen: {profile.generation}")
+        if profile.income_bracket:
+            cultural_parts.append(f"Income: {profile.income_bracket}")
+        if profile.political_leaning:
+            cultural_parts.append(f"Politics: {profile.political_leaning}")
+        if profile.media_diet:
+            cultural_parts.append(f"Media: {profile.media_diet}")
+        if profile.caste_community:
+            cultural_parts.append(f"Community: {profile.caste_community}")
+        if profile.religion:
+            cultural_parts.append(f"Religion: {profile.religion}")
+        if profile.education_medium:
+            cultural_parts.append(f"Edu: {profile.education_medium}")
+        if profile.ethnicity:
+            cultural_parts.append(f"Ethnicity: {profile.ethnicity}")
+        cultural_str = " | ".join(cultural_parts) if cultural_parts else "None"
+
         output_lines = [
             f"\n{separator}",
             f"[Generated] {entity_name} ({entity_type})",
@@ -1060,6 +1203,9 @@ Important:
             f"Age: {profile.age} | Gender: {profile.gender} | MBTI: {profile.mbti}",
             f"Profession: {profile.profession} | Country: {profile.country}",
             f"Interested Topics: {topics_str}",
+            f"",
+            f"[Cultural Dimensions]",
+            f"{cultural_str}",
             separator
         ]
         
@@ -1123,10 +1269,13 @@ Important:
             
             # Write data rows
             for idx, profile in enumerate(profiles):
-                # user_char: full persona (bio + persona), used for LLM system prompt
+                # user_char: full persona (bio + persona + cultural context), used for LLM system prompt
                 user_char = profile.bio
                 if profile.persona and profile.persona != profile.bio:
                     user_char = f"{profile.bio} {profile.persona}"
+                cultural_snippet = profile._build_cultural_context_snippet()
+                if cultural_snippet:
+                    user_char = user_char + cultural_snippet
                 # Handle newlines (replace with spaces in CSV)
                 user_char = user_char.replace('\n', ' ').replace('\r', ' ')
                 
