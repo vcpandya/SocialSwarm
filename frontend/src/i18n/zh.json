@@ -293,7 +293,21 @@
     "instagram": "Instagram",
     "instagramEnabled": "启用 Instagram 模拟",
     "instagramConfig": "Instagram 配置",
-    "platform5Instagram": "平台 5：Instagram"
+    "platform5Instagram": "平台 5：Instagram",
+    "languageConfig": "语言配置",
+    "languageConfigDesc": "配置智能体通信语言",
+    "primaryLanguage": "主要语言",
+    "allowCodeSwitching": "允许语言混合",
+    "languageDistribution": "语言分布",
+    "lang_english": "英语",
+    "lang_hinglish": "印地英语（印地语-英语混合）",
+    "lang_hindi": "印地语",
+    "lang_tamil": "泰米尔语",
+    "lang_telugu": "泰卢固语",
+    "lang_bengali": "孟加拉语",
+    "lang_marathi": "马拉地语",
+    "lang_spanish": "西班牙语",
+    "lang_mandarin": "普通话（中文）"
   },
   "step3": {
     "launchingBtnText": "启动中...",
@@ -487,6 +501,17 @@
     "negative": "负面",
     "neutral": "中性",
     "round": "轮次"
+  },
+  "scenarios": {
+    "title": "场景模板",
+    "description": "选择预设场景模板，快速搭建特定领域的模拟环境",
+    "regulatory": "监管与合规",
+    "financial": "金融市场",
+    "election": "选举与政治",
+    "general": "通用",
+    "applyTemplate": "应用模板",
+    "agentCount": "个智能体",
+    "platforms": "平台"
   },
   "meta": {
     "description": "MiroFish - 社交媒体舆论模拟系统",

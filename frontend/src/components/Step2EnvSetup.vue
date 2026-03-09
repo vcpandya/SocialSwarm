@@ -165,6 +165,35 @@
               </div>
             </div>
           </div>
+
+          <!-- Language Configuration -->
+          <div class="config-item" style="margin-top: 16px;">
+            <span class="config-item-label">{{ $t('step2.languageConfig') }}</span>
+            <p class="description" style="margin: 4px 0 8px 0; font-size: 12px;">{{ $t('step2.languageConfigDesc') }}</p>
+          </div>
+
+          <div class="config-item" style="margin-top: 8px;">
+            <span class="config-item-label">{{ $t('step2.primaryLanguage') }}</span>
+            <select v-model="primaryLanguage" class="timezone-select">
+              <option value="english">{{ $t('step2.lang_english') }}</option>
+              <option value="hinglish">{{ $t('step2.lang_hinglish') }}</option>
+              <option value="hindi">{{ $t('step2.lang_hindi') }}</option>
+              <option value="tamil">{{ $t('step2.lang_tamil') }}</option>
+              <option value="telugu">{{ $t('step2.lang_telugu') }}</option>
+              <option value="bengali">{{ $t('step2.lang_bengali') }}</option>
+              <option value="marathi">{{ $t('step2.lang_marathi') }}</option>
+              <option value="spanish">{{ $t('step2.lang_spanish') }}</option>
+              <option value="mandarin">{{ $t('step2.lang_mandarin') }}</option>
+            </select>
+          </div>
+
+          <div class="config-item" style="margin-top: 8px;">
+            <label class="switch-control">
+              <input type="checkbox" v-model="allowCodeSwitching">
+              <span class="switch-track"></span>
+              <span class="switch-label">{{ $t('step2.allowCodeSwitching') }}</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -890,6 +919,10 @@ const whatsappImportFile = ref(null)
 const enableYouTube = ref(false)
 const enableInstagram = ref(false)
 
+// Language configuration
+const primaryLanguage = ref('english')
+const allowCodeSwitching = ref(true)
+
 // Simulation rounds configuration
 const useCustomRounds = ref(false) // Default to auto-configured rounds
 const customMaxRounds = ref(40)   // Default recommended 40 rounds
@@ -1014,7 +1047,11 @@ const startPrepareSimulation = async () => {
       simulation_id: props.simulationId,
       use_llm_for_profiles: true,
       parallel_profile_count: 5,
-      timezone: selectedTimezone.value
+      timezone: selectedTimezone.value,
+      language_config: {
+        primary_language: primaryLanguage.value,
+        allow_code_switching: allowCodeSwitching.value
+      }
     })
     
     if (res.success && res.data) {

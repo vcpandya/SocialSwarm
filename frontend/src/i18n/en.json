@@ -293,7 +293,21 @@
     "instagram": "Instagram",
     "instagramEnabled": "Enable Instagram Simulation",
     "instagramConfig": "Instagram Configuration",
-    "platform5Instagram": "Platform 5: Instagram"
+    "platform5Instagram": "Platform 5: Instagram",
+    "languageConfig": "Language Configuration",
+    "languageConfigDesc": "Configure agent communication languages",
+    "primaryLanguage": "Primary Language",
+    "allowCodeSwitching": "Allow Language Mixing",
+    "languageDistribution": "Language Distribution",
+    "lang_english": "English",
+    "lang_hinglish": "Hinglish (Hindi-English Mix)",
+    "lang_hindi": "Hindi",
+    "lang_tamil": "Tamil",
+    "lang_telugu": "Telugu",
+    "lang_bengali": "Bengali",
+    "lang_marathi": "Marathi",
+    "lang_spanish": "Spanish",
+    "lang_mandarin": "Mandarin Chinese"
   },
   "step3": {
     "launchingBtnText": "Launching...",
@@ -487,6 +501,17 @@
     "negative": "Negative",
     "neutral": "Neutral",
     "round": "Round"
+  },
+  "scenarios": {
+    "title": "Scenario Templates",
+    "description": "Choose a pre-built scenario template to quickly set up domain-specific simulations",
+    "regulatory": "Regulatory & Compliance",
+    "financial": "Financial Markets",
+    "election": "Election & Political",
+    "general": "General",
+    "applyTemplate": "Apply Template",
+    "agentCount": "agents",
+    "platforms": "Platforms"
   },
   "meta": {
     "description": "MiroFish - Social Media Opinion Simulation System",

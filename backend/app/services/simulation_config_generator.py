@@ -209,6 +209,18 @@ class SimulationParameters:
     llm_model: str = ""
     llm_base_url: str = ""
     
+    # Language configuration
+    language_config: Dict[str, Any] = field(default_factory=lambda: {
+        "primary_language": "english",
+        "allow_code_switching": True,  # Allow agents to mix languages
+        "language_distribution": {
+            "english": 0.4,
+            "hinglish": 0.3,
+            "hindi": 0.2,
+            "regional": 0.1
+        }
+    })
+
     # Generation metadata
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     generation_reasoning: str = ""  # LLM reasoning explanation
@@ -231,6 +243,7 @@ class SimulationParameters:
             "instagram_config": asdict(self.instagram_config) if self.instagram_config else None,
             "llm_model": self.llm_model,
             "llm_base_url": self.llm_base_url,
+            "language_config": self.language_config,
             "generated_at": self.generated_at,
             "generation_reasoning": self.generation_reasoning,
         }
