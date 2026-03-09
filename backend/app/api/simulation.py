@@ -3,16 +3,23 @@ Simulation-related API routes
 Step2: Zep entity reading and filtering, OASIS simulation preparation and execution (fully automated)
 """
 
+import copy
+import json
 import os
+import shutil
+import sqlite3
 import traceback
+import uuid
+from dataclasses import asdict
 from flask import request, jsonify, send_file
 
 from . import simulation_bp
 from ..config import Config
 from ..services.zep_entity_reader import ZepEntityReader
 from ..services.oasis_profile_generator import OasisProfileGenerator
-from ..services.simulation_manager import SimulationManager, SimulationStatus
+from ..services.simulation_manager import SimulationManager, SimulationState, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
+from ..services.sentiment_analyzer import SentimentAnalyzer
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
 
@@ -2134,6 +2141,101 @@ def get_simulation_comments(simulation_id: str):
         }), 500
 
 
+# ============== Sentiment Analysis Endpoints ==============
+
+@simulation_bp.route('/<simulation_id>/sentiment', methods=['GET'])
+def get_sentiment_analysis(simulation_id: str):
+    """
+    Run sentiment analysis on simulation posts and return metrics
+
+    Query parameters:
+        platform: Platform type (twitter/reddit, default twitter)
+
+    Returns polarization metrics including sentiment distribution,
+    topic sentiment, emotion distribution, polarization index, and echo chamber score.
+    """
+    try:
+        platform = request.args.get('platform', 'twitter')
+
+        sim_dir = os.path.join(
+            os.path.dirname(__file__),
+            f'../../uploads/simulations/{simulation_id}'
+        )
+
+        db_file = f"{platform}_simulation.db"
+        db_path = os.path.join(sim_dir, db_file)
+
+        if not os.path.exists(db_path):
+            return jsonify({
+                "success": False,
+                "error": f"Database not found for platform '{platform}'. Simulation may not have run yet."
+            }), 404
+
+        analyzer = SentimentAnalyzer()
+        metrics = analyzer.analyze_simulation(db_path, platform=platform)
+
+        return jsonify({
+            "success": True,
+            "data": asdict(metrics)
+        })
+
+    except Exception as e:
+        logger.error(f"Sentiment analysis failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/<simulation_id>/sentiment/timeline', methods=['GET'])
+def get_sentiment_timeline(simulation_id: str):
+    """
+    Get sentiment scores over time
+
+    Query parameters:
+        platform: Platform type (twitter/reddit, default twitter)
+
+    Returns a list of time-ordered sentiment data points,
+    each with mean sentiment and post count for that time window.
+    """
+    try:
+        platform = request.args.get('platform', 'twitter')
+
+        sim_dir = os.path.join(
+            os.path.dirname(__file__),
+            f'../../uploads/simulations/{simulation_id}'
+        )
+
+        db_file = f"{platform}_simulation.db"
+        db_path = os.path.join(sim_dir, db_file)
+
+        if not os.path.exists(db_path):
+            return jsonify({
+                "success": False,
+                "error": f"Database not found for platform '{platform}'. Simulation may not have run yet."
+            }), 404
+
+        analyzer = SentimentAnalyzer()
+        timeline = analyzer.get_sentiment_timeline(db_path)
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "platform": platform,
+                "timeline": timeline
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Sentiment timeline failed: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
 # ============== Interview Endpoints ==============
 
 @simulation_bp.route('/interview', methods=['POST'])
@@ -2706,6 +2808,356 @@ def close_simulation_env():
         
     except Exception as e:
         logger.error(f"Failed to close environment: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+# ============== What-If Scenario Analysis Endpoints ==============
+
+@simulation_bp.route('/<simulation_id>/clone', methods=['POST'])
+def clone_simulation(simulation_id):
+    """
+    Clone a simulation with modified parameters for what-if analysis.
+
+    Creates a new simulation directory based on an existing one, copying
+    profiles and config while applying optional overrides.
+
+    Request (JSON):
+        {
+            "name": "What-if: Higher echo chamber",
+            "overrides": {
+                "time_config": { "total_simulation_hours": 48 },
+                "twitter_config": { "echo_chamber_strength": 0.9 },
+                "reddit_config": { "echo_chamber_strength": 0.9 },
+                "agent_overrides": {
+                    "sentiment_bias_shift": 0.3,
+                    "stance_flip_percentage": 20
+                },
+                "event_overrides": {
+                    "add_initial_post": { "content": "Breaking: New development..." }
+                }
+            }
+        }
+
+    Response:
+        {
+            "success": true,
+            "data": {
+                "simulation_id": "sim_new123",
+                "parent_simulation_id": "sim_abc123",
+                "scenario_name": "What-if: Higher echo chamber",
+                "status": "ready",
+                "config_overrides_applied": ["time_config", "twitter_config"]
+            }
+        }
+    """
+    try:
+        manager = SimulationManager()
+
+        # 1. Load the original simulation state
+        original_state = manager.get_simulation(simulation_id)
+        if not original_state:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation not found: {simulation_id}"
+            }), 404
+
+        # 2. Parse request body
+        data = request.get_json() or {}
+        scenario_name = data.get('name', f"Clone of {simulation_id}")
+        overrides = data.get('overrides', {})
+
+        # 3. Load original config
+        original_sim_dir = manager._get_simulation_dir(simulation_id)
+        original_config_path = os.path.join(original_sim_dir, "simulation_config.json")
+        original_state_path = os.path.join(original_sim_dir, "state.json")
+
+        if not os.path.exists(original_state_path):
+            return jsonify({
+                "success": False,
+                "error": f"Original simulation state.json not found for: {simulation_id}"
+            }), 400
+
+        # Load original config if it exists
+        original_config = None
+        if os.path.exists(original_config_path):
+            with open(original_config_path, 'r', encoding='utf-8') as f:
+                original_config = json.load(f)
+
+        # 4. Create new simulation directory with a new ID
+        new_simulation_id = f"sim_{uuid.uuid4().hex[:12]}"
+        new_sim_dir = manager._get_simulation_dir(new_simulation_id)
+
+        # 5. Copy profile files from original
+        profile_files = [
+            "reddit_profiles.json",
+            "twitter_profiles.csv",
+            "whatsapp_profiles.json",
+        ]
+        for pf in profile_files:
+            src = os.path.join(original_sim_dir, pf)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(new_sim_dir, pf))
+
+        # 6. Apply overrides to config
+        overrides_applied = []
+        if original_config is not None:
+            new_config = copy.deepcopy(original_config)
+
+            # Apply top-level config section overrides (time_config, twitter_config, etc.)
+            config_sections = [
+                "time_config", "twitter_config", "reddit_config",
+                "whatsapp_config", "simulation_metadata",
+            ]
+            for section in config_sections:
+                if section in overrides:
+                    if section in new_config:
+                        new_config[section].update(overrides[section])
+                    else:
+                        new_config[section] = overrides[section]
+                    overrides_applied.append(section)
+
+            # Apply agent_overrides: shift sentiment bias or flip stances
+            agent_overrides = overrides.get("agent_overrides", {})
+            if agent_overrides and "agent_configs" in new_config:
+                sentiment_shift = agent_overrides.get("sentiment_bias_shift", 0)
+                flip_pct = agent_overrides.get("stance_flip_percentage", 0)
+
+                agents = new_config["agent_configs"]
+                num_to_flip = int(len(agents) * flip_pct / 100)
+
+                for i, agent in enumerate(agents):
+                    # Apply sentiment bias shift
+                    if sentiment_shift and "sentiment_bias" in agent:
+                        agent["sentiment_bias"] = max(-1.0, min(1.0,
+                            agent["sentiment_bias"] + sentiment_shift))
+
+                    # Flip stance for a percentage of agents
+                    if i < num_to_flip and "stance" in agent:
+                        current = agent["stance"]
+                        if current == "support":
+                            agent["stance"] = "oppose"
+                        elif current == "oppose":
+                            agent["stance"] = "support"
+
+                if agent_overrides:
+                    overrides_applied.append("agent_overrides")
+
+            # Apply event_overrides: add an initial post to the config
+            event_overrides = overrides.get("event_overrides", {})
+            if event_overrides:
+                if "initial_posts" not in new_config:
+                    new_config["initial_posts"] = []
+                add_post = event_overrides.get("add_initial_post")
+                if add_post:
+                    new_config["initial_posts"].append(add_post)
+                overrides_applied.append("event_overrides")
+
+            # Save new config
+            new_config_path = os.path.join(new_sim_dir, "simulation_config.json")
+            with open(new_config_path, 'w', encoding='utf-8') as f:
+                json.dump(new_config, f, ensure_ascii=False, indent=2)
+
+        # 7. Create and save the new simulation state
+        new_state = SimulationState(
+            simulation_id=new_simulation_id,
+            project_id=original_state.project_id,
+            graph_id=original_state.graph_id,
+            enable_twitter=original_state.enable_twitter,
+            enable_reddit=original_state.enable_reddit,
+            enable_whatsapp=original_state.enable_whatsapp,
+            status=SimulationStatus.READY if original_config else SimulationStatus.CREATED,
+            entities_count=original_state.entities_count,
+            profiles_count=original_state.profiles_count,
+            entity_types=list(original_state.entity_types),
+            config_generated=original_config is not None,
+            config_reasoning=f"Cloned from {simulation_id} with overrides: {overrides_applied}",
+            parent_simulation_id=simulation_id,
+            scenario_name=scenario_name,
+        )
+        manager._save_simulation_state(new_state)
+
+        logger.info(f"Cloned simulation {simulation_id} -> {new_simulation_id} "
+                     f"(scenario: {scenario_name}, overrides: {overrides_applied})")
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "simulation_id": new_simulation_id,
+                "parent_simulation_id": simulation_id,
+                "scenario_name": scenario_name,
+                "status": new_state.status.value,
+                "config_overrides_applied": overrides_applied,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to clone simulation: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+def _read_actions_from_jsonl(sim_dir: str) -> list:
+    """
+    Read all action entries from JSONL files in a simulation directory.
+
+    Looks for actions.jsonl in twitter/ and reddit/ subdirectories.
+    Returns a list of action dicts.
+    """
+    actions = []
+    for platform in ("twitter", "reddit"):
+        jsonl_path = os.path.join(sim_dir, platform, "actions.jsonl")
+        if os.path.exists(jsonl_path):
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            actions.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue
+    return actions
+
+
+def _read_actions_from_sqlite(sim_dir: str) -> list:
+    """
+    Fallback: read actions from an SQLite database if JSONL is not available.
+    Looks for common database filenames in the simulation directory.
+    """
+    actions = []
+    db_candidates = ["simulation.db", "twitter.db", "reddit.db"]
+    for db_name in db_candidates:
+        db_path = os.path.join(sim_dir, db_name)
+        if os.path.exists(db_path):
+            try:
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    "SELECT * FROM actions ORDER BY rowid"
+                )
+                for row in cursor:
+                    actions.append(dict(row))
+                conn.close()
+            except Exception:
+                continue
+    return actions
+
+
+def _compute_simulation_metrics(actions: list, state) -> dict:
+    """
+    Compute summary metrics from a list of action entries.
+
+    Returns a dict with total_actions, total_posts, total_likes,
+    total_comments, total_reposts, and avg_engagement.
+    """
+    # Filter to actual agent actions (exclude round_start / round_end events)
+    agent_actions = [a for a in actions if "action_type" in a]
+
+    total_actions = len(agent_actions)
+    total_posts = sum(1 for a in agent_actions if a.get("action_type") in
+                      ("create_post", "post", "create_thread", "submit"))
+    total_likes = sum(1 for a in agent_actions if a.get("action_type") in
+                      ("like", "upvote", "favorite"))
+    total_comments = sum(1 for a in agent_actions if a.get("action_type") in
+                         ("comment", "reply", "create_comment"))
+    total_reposts = sum(1 for a in agent_actions if a.get("action_type") in
+                        ("repost", "retweet", "share"))
+
+    # Engagement = (likes + comments + reposts) per post
+    avg_engagement = 0.0
+    if total_posts > 0:
+        avg_engagement = round(
+            (total_likes + total_comments + total_reposts) / total_posts, 2
+        )
+
+    return {
+        "id": state.simulation_id if state else "",
+        "name": getattr(state, "scenario_name", "") or state.simulation_id if state else "",
+        "total_actions": total_actions,
+        "total_posts": total_posts,
+        "total_likes": total_likes,
+        "total_comments": total_comments,
+        "total_reposts": total_reposts,
+        "avg_engagement": avg_engagement,
+    }
+
+
+@simulation_bp.route('/compare', methods=['POST'])
+def compare_simulations():
+    """
+    Compare results of two or more simulations.
+
+    Reads action logs from each simulation and returns comparative metrics.
+
+    Request (JSON):
+        {
+            "simulation_ids": ["sim_abc123", "sim_def456"],
+            "metrics": ["action_counts", "sentiment", "engagement"]
+        }
+
+    Response:
+        {
+            "success": true,
+            "simulations": [ ... ],
+            "differences": { ... }
+        }
+    """
+    try:
+        data = request.get_json() or {}
+        simulation_ids = data.get('simulation_ids', [])
+
+        if len(simulation_ids) < 2:
+            return jsonify({
+                "success": False,
+                "error": "Please provide at least 2 simulation_ids to compare"
+            }), 400
+
+        manager = SimulationManager()
+        sim_results = []
+
+        for sim_id in simulation_ids:
+            state = manager.get_simulation(sim_id)
+            if not state:
+                return jsonify({
+                    "success": False,
+                    "error": f"Simulation not found: {sim_id}"
+                }), 404
+
+            sim_dir = manager._get_simulation_dir(sim_id)
+
+            # Try JSONL first, fall back to SQLite
+            actions = _read_actions_from_jsonl(sim_dir)
+            if not actions:
+                actions = _read_actions_from_sqlite(sim_dir)
+
+            metrics = _compute_simulation_metrics(actions, state)
+            sim_results.append(metrics)
+
+        # Compute pairwise differences (first simulation is the baseline)
+        differences = {}
+        if len(sim_results) >= 2:
+            baseline = sim_results[0]
+            comparison = sim_results[-1]
+            for key in ("total_actions", "total_posts", "total_likes",
+                        "total_comments", "total_reposts", "avg_engagement"):
+                differences[f"{key}_delta"] = round(
+                    comparison.get(key, 0) - baseline.get(key, 0), 2
+                )
+
+        return jsonify({
+            "success": True,
+            "simulations": sim_results,
+            "differences": differences,
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to compare simulations: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),

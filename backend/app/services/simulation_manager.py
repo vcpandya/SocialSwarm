@@ -76,6 +76,10 @@ class SimulationState:
     
     # Error info
     error: Optional[str] = None
+
+    # Scenario / what-if analysis metadata
+    parent_simulation_id: Optional[str] = None  # The simulation this was cloned from
+    scenario_name: str = ""  # User-friendly name for this scenario
     
     def to_dict(self) -> Dict[str, Any]:
         """Full status dict (internal use)"""
@@ -99,6 +103,8 @@ class SimulationState:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "error": self.error,
+            "parent_simulation_id": self.parent_simulation_id,
+            "scenario_name": self.scenario_name,
         }
     
     def to_simple_dict(self) -> Dict[str, Any]:
@@ -113,6 +119,8 @@ class SimulationState:
             "entity_types": self.entity_types,
             "config_generated": self.config_generated,
             "error": self.error,
+            "parent_simulation_id": self.parent_simulation_id,
+            "scenario_name": self.scenario_name,
         }
 
 
@@ -192,6 +200,8 @@ class SimulationManager:
             created_at=data.get("created_at", datetime.now().isoformat()),
             updated_at=data.get("updated_at", datetime.now().isoformat()),
             error=data.get("error"),
+            parent_simulation_id=data.get("parent_simulation_id"),
+            scenario_name=data.get("scenario_name", ""),
         )
         
         self._simulations[simulation_id] = state
