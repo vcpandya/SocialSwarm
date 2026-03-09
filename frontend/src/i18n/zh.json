@@ -462,6 +462,24 @@
     "message": "页面未找到",
     "goHome": "返回首页"
   },
+  "dashboard": {
+    "title": "情感与极化分析仪表板",
+    "overallSentiment": "整体情感",
+    "polarizationIndex": "极化指数",
+    "echoChamberScore": "回音室指数",
+    "postsAnalyzed": "已分析帖子",
+    "sentimentTimeline": "情感时间线",
+    "topicSentiment": "话题情感分布",
+    "emotionDistribution": "情绪分布",
+    "agentSentiment": "智能体情感分布",
+    "loading": "正在分析情感...",
+    "error": "加载情感数据失败",
+    "noData": "没有可供分析的模拟数据",
+    "positive": "正面",
+    "negative": "负面",
+    "neutral": "中性",
+    "round": "轮次"
+  },
   "meta": {
     "description": "MiroFish - 社交媒体舆论模拟系统",
     "title": "MiroFish - 预测万物"

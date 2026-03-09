@@ -37,6 +37,12 @@ const routes = [
     props: true
   },
   {
+    path: '/dashboard/:simulationId',
+    name: 'Dashboard',
+    component: () => import('../views/DashboardView.vue'),
+    props: true
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/NotFound.vue')

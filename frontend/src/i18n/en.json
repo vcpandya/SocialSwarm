@@ -462,6 +462,24 @@
     "message": "Page not found",
     "goHome": "Back to Home"
   },
+  "dashboard": {
+    "title": "Sentiment & Polarization Dashboard",
+    "overallSentiment": "Overall Sentiment",
+    "polarizationIndex": "Polarization Index",
+    "echoChamberScore": "Echo Chamber Score",
+    "postsAnalyzed": "Posts Analyzed",
+    "sentimentTimeline": "Sentiment Over Time",
+    "topicSentiment": "Sentiment by Topic",
+    "emotionDistribution": "Emotion Distribution",
+    "agentSentiment": "Agent Sentiment Distribution",
+    "loading": "Analyzing sentiment...",
+    "error": "Failed to load sentiment data",
+    "noData": "No simulation data available for analysis",
+    "positive": "Positive",
+    "negative": "Negative",
+    "neutral": "Neutral",
+    "round": "Round"
+  },
   "meta": {
     "description": "MiroFish - Social Media Opinion Simulation System",
     "title": "MiroFish - Predict Everything"

@@ -136,6 +136,17 @@
             </svg>
           </button>
 
+          <!-- Dashboard Link -->
+          <router-link v-if="isComplete && simulationId" :to="`/dashboard/${simulationId}`" class="dashboard-link">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            </svg>
+            {{ $t('dashboard.title') }}
+          </router-link>
+
           <div class="workflow-divider"></div>
         </div>
 
@@ -3324,6 +3335,30 @@ watch(() => props.reportId, (newId) => {
 
 .next-step-btn:hover svg {
   transform: translateX(4px);
+}
+
+/* Dashboard Link */
+.dashboard-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6c5ce7;
+  text-decoration: none;
+  background: rgba(108, 92, 231, 0.08);
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.dashboard-link:hover {
+  background: rgba(108, 92, 231, 0.15);
+  border-color: rgba(108, 92, 231, 0.4);
+  color: #7c6df7;
 }
 
 /* Workflow Empty */
