@@ -285,7 +285,15 @@
     "whatsappConfig": "WhatsApp Group Configuration",
     "whatsappImport": "Import WhatsApp Chat",
     "whatsappImportDesc": "Upload a WhatsApp chat export (.txt) to seed the simulation",
-    "platform3WhatsApp": "Platform 3: WhatsApp Group"
+    "platform3WhatsApp": "Platform 3: WhatsApp Group",
+    "youtube": "YouTube",
+    "youtubeEnabled": "Enable YouTube Simulation",
+    "youtubeConfig": "YouTube Configuration",
+    "platform4YouTube": "Platform 4: YouTube",
+    "instagram": "Instagram",
+    "instagramEnabled": "Enable Instagram Simulation",
+    "instagramConfig": "Instagram Configuration",
+    "platform5Instagram": "Platform 5: Instagram"
   },
   "step3": {
     "launchingBtnText": "Launching...",

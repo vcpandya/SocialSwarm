@@ -38,6 +38,8 @@ class PlatformType(str, Enum):
     TWITTER = "twitter"
     REDDIT = "reddit"
     WHATSAPP = "whatsapp"
+    YOUTUBE = "youtube"
+    INSTAGRAM = "instagram"
 
 
 @dataclass
@@ -51,6 +53,8 @@ class SimulationState:
     enable_twitter: bool = True
     enable_reddit: bool = True
     enable_whatsapp: bool = False
+    enable_youtube: bool = False
+    enable_instagram: bool = False
     
     # Status
     status: SimulationStatus = SimulationStatus.CREATED
@@ -69,6 +73,8 @@ class SimulationState:
     twitter_status: str = "not_started"
     reddit_status: str = "not_started"
     whatsapp_status: str = "not_started"
+    youtube_status: str = "not_started"
+    instagram_status: str = "not_started"
     
     # Timestamps
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -90,6 +96,8 @@ class SimulationState:
             "enable_twitter": self.enable_twitter,
             "enable_reddit": self.enable_reddit,
             "enable_whatsapp": self.enable_whatsapp,
+            "enable_youtube": self.enable_youtube,
+            "enable_instagram": self.enable_instagram,
             "status": self.status.value,
             "entities_count": self.entities_count,
             "profiles_count": self.profiles_count,
@@ -100,6 +108,8 @@ class SimulationState:
             "twitter_status": self.twitter_status,
             "reddit_status": self.reddit_status,
             "whatsapp_status": self.whatsapp_status,
+            "youtube_status": self.youtube_status,
+            "instagram_status": self.instagram_status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "error": self.error,
@@ -187,6 +197,8 @@ class SimulationManager:
             enable_twitter=data.get("enable_twitter", True),
             enable_reddit=data.get("enable_reddit", True),
             enable_whatsapp=data.get("enable_whatsapp", False),
+            enable_youtube=data.get("enable_youtube", False),
+            enable_instagram=data.get("enable_instagram", False),
             status=SimulationStatus(data.get("status", "created")),
             entities_count=data.get("entities_count", 0),
             profiles_count=data.get("profiles_count", 0),
@@ -197,6 +209,8 @@ class SimulationManager:
             twitter_status=data.get("twitter_status", "not_started"),
             reddit_status=data.get("reddit_status", "not_started"),
             whatsapp_status=data.get("whatsapp_status", "not_started"),
+            youtube_status=data.get("youtube_status", "not_started"),
+            instagram_status=data.get("instagram_status", "not_started"),
             created_at=data.get("created_at", datetime.now().isoformat()),
             updated_at=data.get("updated_at", datetime.now().isoformat()),
             error=data.get("error"),
@@ -214,6 +228,8 @@ class SimulationManager:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         enable_whatsapp: bool = False,
+        enable_youtube: bool = False,
+        enable_instagram: bool = False,
     ) -> SimulationState:
         """
         Create a new simulation
@@ -224,6 +240,8 @@ class SimulationManager:
             enable_twitter: Whether to enable Twitter simulation
             enable_reddit: Whether to enable Reddit simulation
             enable_whatsapp: Whether to enable WhatsApp simulation
+            enable_youtube: Whether to enable YouTube simulation
+            enable_instagram: Whether to enable Instagram simulation
 
         Returns:
             SimulationState
@@ -238,6 +256,8 @@ class SimulationManager:
             enable_twitter=enable_twitter,
             enable_reddit=enable_reddit,
             enable_whatsapp=enable_whatsapp,
+            enable_youtube=enable_youtube,
+            enable_instagram=enable_instagram,
             status=SimulationStatus.CREATED,
         )
         
@@ -400,6 +420,22 @@ class SimulationManager:
                     file_path=os.path.join(sim_dir, "whatsapp_profiles.json"),
                     platform="whatsapp"
                 )
+
+            if state.enable_youtube:
+                # YouTube uses JSON format (uses Reddit platform type under the hood)
+                generator.save_profiles(
+                    profiles=profiles,
+                    file_path=os.path.join(sim_dir, "youtube_profiles.json"),
+                    platform="youtube"
+                )
+
+            if state.enable_instagram:
+                # Instagram uses JSON format (uses Reddit platform type under the hood)
+                generator.save_profiles(
+                    profiles=profiles,
+                    file_path=os.path.join(sim_dir, "instagram_profiles.json"),
+                    platform="instagram"
+                )
             
             if progress_callback:
                 progress_callback(
@@ -438,6 +474,8 @@ class SimulationManager:
                 enable_twitter=state.enable_twitter,
                 enable_reddit=state.enable_reddit,
                 enable_whatsapp=state.enable_whatsapp,
+                enable_youtube=state.enable_youtube,
+                enable_instagram=state.enable_instagram,
                 timezone=timezone
             )
             

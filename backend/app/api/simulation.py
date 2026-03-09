@@ -20,6 +20,7 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationState, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.sentiment_analyzer import SentimentAnalyzer
+from ..services.news_feed import NewsFeedService, NewsFeedConfig
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
 
@@ -2969,6 +2970,8 @@ def clone_simulation(simulation_id):
             enable_twitter=original_state.enable_twitter,
             enable_reddit=original_state.enable_reddit,
             enable_whatsapp=original_state.enable_whatsapp,
+            enable_youtube=original_state.enable_youtube,
+            enable_instagram=original_state.enable_instagram,
             status=SimulationStatus.READY if original_config else SimulationStatus.CREATED,
             entities_count=original_state.entities_count,
             profiles_count=original_state.profiles_count,
@@ -3158,6 +3161,175 @@ def compare_simulations():
 
     except Exception as e:
         logger.error(f"Failed to compare simulations: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+# ============== News Feed Endpoints ==============
+
+@simulation_bp.route('/api/news/feeds', methods=['GET'])
+def get_available_feeds():
+    """Return the catalog of available RSS feeds by region and category"""
+    try:
+        catalog = NewsFeedService.get_available_feeds()
+        return jsonify({
+            "success": True,
+            "data": catalog
+        })
+    except Exception as e:
+        logger.error(f"Failed to get feed catalog: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@simulation_bp.route('/api/news/fetch', methods=['POST'])
+def fetch_news():
+    """
+    Fetch news articles for simulation seeding.
+
+    Request body:
+        {
+            "regions": ["india", "global"],
+            "categories": ["general", "tech"],
+            "keywords": ["technology", "AI"],
+            "max_articles": 10,
+            "max_age_hours": 48
+        }
+
+    Response:
+        {
+            "success": true,
+            "articles": [ ... ],
+            "count": 5
+        }
+    """
+    try:
+        data = request.get_json() or {}
+
+        config = NewsFeedConfig(
+            regions=data.get("regions", ["india", "global"]),
+            categories=data.get("categories", ["general"]),
+            keywords=data.get("keywords", []),
+            max_articles=data.get("max_articles", 10),
+            max_age_hours=data.get("max_age_hours", 48),
+        )
+
+        service = NewsFeedService()
+        articles = service.fetch_articles(config)
+
+        return jsonify({
+            "success": True,
+            "articles": [a.to_dict() for a in articles],
+            "count": len(articles),
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to fetch news: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/simulation/<simulation_id>/inject-news', methods=['POST'])
+def inject_news_events(simulation_id):
+    """
+    Fetch news and inject as initial posts into a simulation config.
+
+    Request body:
+        {
+            "regions": ["india", "global"],
+            "categories": ["general", "tech"],
+            "keywords": ["technology", "AI"],
+            "max_articles": 5,
+            "max_age_hours": 48
+        }
+
+    This will:
+        1. Fetch articles using NewsFeedService
+        2. Convert to simulation events (initial posts)
+        3. Append to the simulation's event_config.initial_posts
+        4. Save the updated config
+    """
+    try:
+        manager = SimulationManager()
+        state = manager.get_simulation(simulation_id)
+        if not state:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation not found: {simulation_id}"
+            }), 404
+
+        # Load existing simulation config
+        sim_config = manager.get_simulation_config(simulation_id)
+        if not sim_config:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation config not found for: {simulation_id}"
+            }), 404
+
+        data = request.get_json() or {}
+
+        config = NewsFeedConfig(
+            regions=data.get("regions", ["india", "global"]),
+            categories=data.get("categories", ["general"]),
+            keywords=data.get("keywords", []),
+            max_articles=data.get("max_articles", 5),
+            max_age_hours=data.get("max_age_hours", 48),
+        )
+
+        # Fetch articles
+        service = NewsFeedService()
+        articles = service.fetch_articles(config)
+
+        if not articles:
+            return jsonify({
+                "success": True,
+                "message": "No matching articles found",
+                "injected_count": 0,
+            })
+
+        # Collect existing agent IDs from the config for post assignment
+        agent_ids = []
+        for agent_cfg in sim_config.get("agent_configs", []):
+            aid = agent_cfg.get("agent_id")
+            if aid is not None:
+                agent_ids.append(aid)
+
+        # Convert articles to simulation events
+        events = service.to_simulation_events(articles, agent_ids=agent_ids or None)
+
+        # Append to initial_posts in the config
+        if "event_config" not in sim_config:
+            sim_config["event_config"] = {"initial_posts": [], "scheduled_events": [], "hot_topics": []}
+        if "initial_posts" not in sim_config["event_config"]:
+            sim_config["event_config"]["initial_posts"] = []
+
+        sim_config["event_config"]["initial_posts"].extend(events)
+
+        # Save the updated config
+        sim_dir = manager._get_simulation_dir(simulation_id)
+        config_path = os.path.join(sim_dir, "simulation_config.json")
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(sim_config, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Injected {len(events)} news events into simulation {simulation_id}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Injected {len(events)} news articles as initial posts",
+            "injected_count": len(events),
+            "articles": [a.to_dict() for a in articles],
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to inject news into simulation {simulation_id}: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),

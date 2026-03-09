@@ -89,6 +89,82 @@
               </label>
             </div>
           </div>
+
+          <!-- YouTube Platform Toggle -->
+          <div class="config-item" style="margin-top: 12px;">
+            <label class="switch-control">
+              <input type="checkbox" v-model="enableYouTube">
+              <span class="switch-track"></span>
+              <span class="switch-label">{{ $t('step2.youtubeEnabled') }}</span>
+            </label>
+          </div>
+
+          <!-- YouTube Config (shown when enabled) -->
+          <div v-if="enableYouTube" class="youtube-config-section" style="margin-top: 12px;">
+            <div class="info-card">
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.youtubeConfig') }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.recencyWeight') }}</span>
+                <span class="info-value">0.3</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.popularityWeight') }}</span>
+                <span class="info-value">0.5</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.relevanceWeight') }}</span>
+                <span class="info-value">0.2</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.echoChamberStrength') }}</span>
+                <span class="info-value">0.6</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.viralThreshold') }}</span>
+                <span class="info-value">20</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Instagram Platform Toggle -->
+          <div class="config-item" style="margin-top: 12px;">
+            <label class="switch-control">
+              <input type="checkbox" v-model="enableInstagram">
+              <span class="switch-track"></span>
+              <span class="switch-label">{{ $t('step2.instagramEnabled') }}</span>
+            </label>
+          </div>
+
+          <!-- Instagram Config (shown when enabled) -->
+          <div v-if="enableInstagram" class="instagram-config-section" style="margin-top: 12px;">
+            <div class="info-card">
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.instagramConfig') }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.recencyWeight') }}</span>
+                <span class="info-value">0.5</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.popularityWeight') }}</span>
+                <span class="info-value">0.3</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.relevanceWeight') }}</span>
+                <span class="info-value">0.2</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.echoChamberStrength') }}</span>
+                <span class="info-value">0.4</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.viralThreshold') }}</span>
+                <span class="info-value">8</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -403,6 +479,60 @@
                     <div class="param-row">
                       <span class="param-label">{{ $t('step2.echoChamberStrength') }}</span>
                       <span class="param-value">{{ simulationConfig.whatsapp_config.echo_chamber_strength }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="simulationConfig.youtube_config" class="platform-card">
+                  <div class="platform-card-header">
+                    <span class="platform-name">{{ $t('step2.platform4YouTube') }}</span>
+                  </div>
+                  <div class="platform-params">
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.recencyWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.youtube_config.recency_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.popularityWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.youtube_config.popularity_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.relevanceWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.youtube_config.relevance_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.viralThreshold') }}</span>
+                      <span class="param-value">{{ simulationConfig.youtube_config.viral_threshold }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.echoChamberStrength') }}</span>
+                      <span class="param-value">{{ simulationConfig.youtube_config.echo_chamber_strength }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="simulationConfig.instagram_config" class="platform-card">
+                  <div class="platform-card-header">
+                    <span class="platform-name">{{ $t('step2.platform5Instagram') }}</span>
+                  </div>
+                  <div class="platform-params">
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.recencyWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.instagram_config.recency_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.popularityWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.instagram_config.popularity_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.relevanceWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.instagram_config.relevance_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.viralThreshold') }}</span>
+                      <span class="param-value">{{ simulationConfig.instagram_config.viral_threshold }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.echoChamberStrength') }}</span>
+                      <span class="param-value">{{ simulationConfig.instagram_config.echo_chamber_strength }}</span>
                     </div>
                   </div>
                 </div>
@@ -757,6 +887,8 @@ let lastLoggedConfigStage = ''
 const selectedTimezone = ref('asia_kolkata')
 const enableWhatsApp = ref(false)
 const whatsappImportFile = ref(null)
+const enableYouTube = ref(false)
+const enableInstagram = ref(false)
 
 // Simulation rounds configuration
 const useCustomRounds = ref(false) // Default to auto-configured rounds

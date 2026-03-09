@@ -64,6 +64,21 @@ class Config:
         'SEARCH_POSTS',     # Search in chat
         'DO_NOTHING',       # Lurk / read messages
     ]
+    OASIS_YOUTUBE_ACTIONS = [
+        'CREATE_COMMENT',    # Post a comment
+        'LIKE_COMMENT',      # Like a comment
+        'DISLIKE_COMMENT',   # Dislike a comment
+        'CREATE_POST',       # Upload video (simulated as text post)
+        'DO_NOTHING',        # Watch/lurk
+    ]
+    OASIS_INSTAGRAM_ACTIONS = [
+        'CREATE_POST',       # Share a post/reel
+        'CREATE_COMMENT',    # Comment on a post
+        'LIKE_POST',         # Like a post
+        'LIKE_COMMENT',      # Like a comment
+        'FOLLOW',            # Follow a user
+        'DO_NOTHING',        # Browse/lurk
+    ]
 
     # Report Agent configuration
     REPORT_AGENT_MAX_TOOL_CALLS = int(os.environ.get('REPORT_AGENT_MAX_TOOL_CALLS', '5'))

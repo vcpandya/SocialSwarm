@@ -285,7 +285,15 @@
     "whatsappConfig": "WhatsApp 群组配置",
     "whatsappImport": "导入 WhatsApp 聊天记录",
     "whatsappImportDesc": "上传 WhatsApp 聊天导出文件 (.txt) 作为模拟种子",
-    "platform3WhatsApp": "平台 3：WhatsApp 群组"
+    "platform3WhatsApp": "平台 3：WhatsApp 群组",
+    "youtube": "YouTube",
+    "youtubeEnabled": "启用 YouTube 模拟",
+    "youtubeConfig": "YouTube 配置",
+    "platform4YouTube": "平台 4：YouTube",
+    "instagram": "Instagram",
+    "instagramEnabled": "启用 Instagram 模拟",
+    "instagramConfig": "Instagram 配置",
+    "platform5Instagram": "平台 5：Instagram"
   },
   "step3": {
     "launchingBtnText": "启动中...",

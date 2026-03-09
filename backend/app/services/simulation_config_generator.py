@@ -202,6 +202,8 @@ class SimulationParameters:
     twitter_config: Optional[PlatformConfig] = None
     reddit_config: Optional[PlatformConfig] = None
     whatsapp_config: Optional[PlatformConfig] = None
+    youtube_config: Optional[PlatformConfig] = None
+    instagram_config: Optional[PlatformConfig] = None
     
     # LLM configuration
     llm_model: str = ""
@@ -225,6 +227,8 @@ class SimulationParameters:
             "twitter_config": asdict(self.twitter_config) if self.twitter_config else None,
             "reddit_config": asdict(self.reddit_config) if self.reddit_config else None,
             "whatsapp_config": asdict(self.whatsapp_config) if self.whatsapp_config else None,
+            "youtube_config": asdict(self.youtube_config) if self.youtube_config else None,
+            "instagram_config": asdict(self.instagram_config) if self.instagram_config else None,
             "llm_model": self.llm_model,
             "llm_base_url": self.llm_base_url,
             "generated_at": self.generated_at,
@@ -290,6 +294,8 @@ class SimulationConfigGenerator:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         enable_whatsapp: bool = False,
+        enable_youtube: bool = False,
+        enable_instagram: bool = False,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         timezone: Optional[str] = None,
     ) -> SimulationParameters:
@@ -306,6 +312,8 @@ class SimulationConfigGenerator:
             enable_twitter: Whether to enable Twitter
             enable_reddit: Whether to enable Reddit
             enable_whatsapp: Whether to enable WhatsApp
+            enable_youtube: Whether to enable YouTube
+            enable_instagram: Whether to enable Instagram
             progress_callback: Progress callback function(current_step, total_steps, message)
             timezone: Timezone preset key (e.g. "asia_kolkata", "america_new_york"). Defaults to DEFAULT_TIMEZONE.
 
@@ -381,6 +389,8 @@ class SimulationConfigGenerator:
         twitter_config = None
         reddit_config = None
         whatsapp_config = None
+        youtube_config = None
+        instagram_config = None
 
         if enable_twitter:
             twitter_config = PlatformConfig(
@@ -412,6 +422,26 @@ class SimulationConfigGenerator:
                 echo_chamber_strength=0.7
             )
 
+        if enable_youtube:
+            youtube_config = PlatformConfig(
+                platform="youtube",
+                recency_weight=0.3,
+                popularity_weight=0.5,
+                relevance_weight=0.2,
+                viral_threshold=20,
+                echo_chamber_strength=0.6
+            )
+
+        if enable_instagram:
+            instagram_config = PlatformConfig(
+                platform="instagram",
+                recency_weight=0.5,
+                popularity_weight=0.3,
+                relevance_weight=0.2,
+                viral_threshold=8,
+                echo_chamber_strength=0.4
+            )
+
         # Build final parameters
         params = SimulationParameters(
             simulation_id=simulation_id,
@@ -424,6 +454,8 @@ class SimulationConfigGenerator:
             twitter_config=twitter_config,
             reddit_config=reddit_config,
             whatsapp_config=whatsapp_config,
+            youtube_config=youtube_config,
+            instagram_config=instagram_config,
             llm_model=self.model_name,
             llm_base_url=self.base_url,
             generation_reasoning=" | ".join(reasoning_parts)
