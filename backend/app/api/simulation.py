@@ -21,6 +21,7 @@ from ..services.simulation_manager import SimulationManager, SimulationState, Si
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.sentiment_analyzer import SentimentAnalyzer
 from ..services.news_feed import NewsFeedService, NewsFeedConfig
+from ..services.scenario_templates import get_template, list_templates
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
 
@@ -3330,6 +3331,146 @@ def inject_news_events(simulation_id):
 
     except Exception as e:
         logger.error(f"Failed to inject news into simulation {simulation_id}: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+# ============== Scenario Template Endpoints ==============
+
+@simulation_bp.route('/api/scenarios', methods=['GET'])
+def list_scenario_templates():
+    """
+    List available scenario templates.
+
+    Query parameters:
+        category: Filter by category (optional). Values: regulatory, financial, election, general
+    """
+    try:
+        category = request.args.get('category', None)
+        templates = list_templates(category=category)
+        return jsonify({
+            "success": True,
+            "data": templates,
+            "count": len(templates)
+        })
+    except Exception as e:
+        logger.error(f"Failed to list scenario templates: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/scenarios/<template_id>', methods=['GET'])
+def get_scenario_template(template_id):
+    """Get detailed scenario template by ID"""
+    try:
+        template = get_template(template_id)
+        if not template:
+            return jsonify({
+                "success": False,
+                "error": f"Scenario template not found: {template_id}"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "data": template.to_dict()
+        })
+    except Exception as e:
+        logger.error(f"Failed to get scenario template {template_id}: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/simulation/<simulation_id>/apply-scenario', methods=['POST'])
+def apply_scenario_template(simulation_id):
+    """
+    Apply a scenario template to an existing simulation.
+
+    Request body:
+        {
+            "template_id": "stock_market_event"
+        }
+
+    This updates the simulation config with the template's suggested config,
+    agent archetypes, and events.
+    """
+    try:
+        data = request.get_json() or {}
+        template_id = data.get("template_id")
+        if not template_id:
+            return jsonify({
+                "success": False,
+                "error": "template_id is required"
+            }), 400
+
+        template = get_template(template_id)
+        if not template:
+            return jsonify({
+                "success": False,
+                "error": f"Scenario template not found: {template_id}"
+            }), 404
+
+        manager = SimulationManager()
+        state = manager.get_simulation(simulation_id)
+        if not state:
+            return jsonify({
+                "success": False,
+                "error": f"Simulation not found: {simulation_id}"
+            }), 404
+
+        # Load existing simulation config
+        sim_config = manager.get_simulation_config(simulation_id)
+        if not sim_config:
+            sim_config = {}
+
+        # Apply suggested config parameters
+        for key, value in template.suggested_config.items():
+            sim_config[key] = value
+
+        # Apply agent archetypes as scenario_agent_archetypes
+        sim_config["scenario_template_id"] = template.id
+        sim_config["scenario_agent_archetypes"] = template.agent_archetypes
+
+        # Apply default events if any
+        if template.default_events:
+            if "event_config" not in sim_config:
+                sim_config["event_config"] = {"initial_posts": [], "scheduled_events": [], "hot_topics": []}
+            if "initial_posts" not in sim_config["event_config"]:
+                sim_config["event_config"]["initial_posts"] = []
+            sim_config["event_config"]["initial_posts"].extend(template.default_events)
+
+        # Store analysis prompts for later use
+        sim_config["scenario_analysis_prompts"] = template.analysis_prompts
+        sim_config["scenario_news_categories"] = template.news_categories
+        sim_config["scenario_recommended_platforms"] = template.recommended_platforms
+
+        # Save the updated config
+        sim_dir = manager._get_simulation_dir(simulation_id)
+        config_path = os.path.join(sim_dir, "simulation_config.json")
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(sim_config, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Applied scenario template '{template_id}' to simulation {simulation_id}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Applied scenario template '{template.name}' to simulation",
+            "template": template.to_dict(),
+            "applied_config_keys": list(template.suggested_config.keys()),
+            "agent_archetype_count": len(template.agent_archetypes),
+            "total_agents": sum(a["count"] for a in template.agent_archetypes),
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to apply scenario template to simulation {simulation_id}: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
