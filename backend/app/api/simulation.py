@@ -229,6 +229,9 @@ def create_simulation():
             graph_id=graph_id,
             enable_twitter=data.get('enable_twitter', True),
             enable_reddit=data.get('enable_reddit', True),
+            enable_whatsapp=data.get('enable_whatsapp', False),
+            enable_youtube=data.get('enable_youtube', False),
+            enable_instagram=data.get('enable_instagram', False),
         )
         
         return jsonify({
@@ -2159,10 +2162,7 @@ def get_sentiment_analysis(simulation_id: str):
     try:
         platform = request.args.get('platform', 'twitter')
 
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
 
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
@@ -2204,10 +2204,7 @@ def get_sentiment_timeline(simulation_id: str):
     try:
         platform = request.args.get('platform', 'twitter')
 
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
 
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
@@ -2898,6 +2895,8 @@ def clone_simulation(simulation_id):
             "reddit_profiles.json",
             "twitter_profiles.csv",
             "whatsapp_profiles.json",
+            "youtube_profiles.json",
+            "instagram_profiles.json",
         ]
         for pf in profile_files:
             src = os.path.join(original_sim_dir, pf)
@@ -2912,7 +2911,8 @@ def clone_simulation(simulation_id):
             # Apply top-level config section overrides (time_config, twitter_config, etc.)
             config_sections = [
                 "time_config", "twitter_config", "reddit_config",
-                "whatsapp_config", "simulation_metadata",
+                "whatsapp_config", "youtube_config", "instagram_config",
+                "simulation_metadata",
             ]
             for section in config_sections:
                 if section in overrides:

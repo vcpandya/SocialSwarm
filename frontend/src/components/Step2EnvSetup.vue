@@ -174,7 +174,7 @@
 
           <div class="config-item" style="margin-top: 8px;">
             <span class="config-item-label">{{ $t('step2.primaryLanguage') }}</span>
-            <select v-model="primaryLanguage" class="timezone-select">
+            <select v-model="primaryLanguage" class="language-select">
               <option value="english">{{ $t('step2.lang_english') }}</option>
               <option value="hinglish">{{ $t('step2.lang_hinglish') }}</option>
               <option value="hindi">{{ $t('step2.lang_hindi') }}</option>
@@ -1048,6 +1048,9 @@ const startPrepareSimulation = async () => {
       use_llm_for_profiles: true,
       parallel_profile_count: 5,
       timezone: selectedTimezone.value,
+      enable_whatsapp: enableWhatsApp.value,
+      enable_youtube: enableYouTube.value,
+      enable_instagram: enableInstagram.value,
       language_config: {
         primary_language: primaryLanguage.value,
         allow_code_switching: allowCodeSwitching.value
