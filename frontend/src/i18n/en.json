@@ -278,7 +278,14 @@
     "tz_asia_shanghai": "China (CST, UTC+8)",
     "tz_america_new_york": "US East (EST, UTC-5)",
     "tz_america_los_angeles": "US West (PST, UTC-8)",
-    "tz_utc": "UTC (UTC+0)"
+    "tz_utc": "UTC (UTC+0)",
+    "whatsapp": "WhatsApp",
+    "whatsappGroup": "WhatsApp Group",
+    "whatsappEnabled": "Enable WhatsApp Simulation",
+    "whatsappConfig": "WhatsApp Group Configuration",
+    "whatsappImport": "Import WhatsApp Chat",
+    "whatsappImportDesc": "Upload a WhatsApp chat export (.txt) to seed the simulation",
+    "platform3WhatsApp": "Platform 3: WhatsApp Group"
   },
   "step3": {
     "launchingBtnText": "Launching...",

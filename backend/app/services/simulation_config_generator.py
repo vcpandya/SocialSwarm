@@ -201,6 +201,7 @@ class SimulationParameters:
     # Platform configuration
     twitter_config: Optional[PlatformConfig] = None
     reddit_config: Optional[PlatformConfig] = None
+    whatsapp_config: Optional[PlatformConfig] = None
     
     # LLM configuration
     llm_model: str = ""
@@ -223,6 +224,7 @@ class SimulationParameters:
             "event_config": asdict(self.event_config),
             "twitter_config": asdict(self.twitter_config) if self.twitter_config else None,
             "reddit_config": asdict(self.reddit_config) if self.reddit_config else None,
+            "whatsapp_config": asdict(self.whatsapp_config) if self.whatsapp_config else None,
             "llm_model": self.llm_model,
             "llm_base_url": self.llm_base_url,
             "generated_at": self.generated_at,
@@ -287,6 +289,7 @@ class SimulationConfigGenerator:
         entities: List[EntityNode],
         enable_twitter: bool = True,
         enable_reddit: bool = True,
+        enable_whatsapp: bool = False,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         timezone: Optional[str] = None,
     ) -> SimulationParameters:
@@ -302,6 +305,7 @@ class SimulationConfigGenerator:
             entities: Filtered entity list
             enable_twitter: Whether to enable Twitter
             enable_reddit: Whether to enable Reddit
+            enable_whatsapp: Whether to enable WhatsApp
             progress_callback: Progress callback function(current_step, total_steps, message)
             timezone: Timezone preset key (e.g. "asia_kolkata", "america_new_york"). Defaults to DEFAULT_TIMEZONE.
 
@@ -376,7 +380,8 @@ class SimulationConfigGenerator:
         report_progress(total_steps, "Generating platform configuration...")
         twitter_config = None
         reddit_config = None
-        
+        whatsapp_config = None
+
         if enable_twitter:
             twitter_config = PlatformConfig(
                 platform="twitter",
@@ -386,7 +391,7 @@ class SimulationConfigGenerator:
                 viral_threshold=10,
                 echo_chamber_strength=0.5
             )
-        
+
         if enable_reddit:
             reddit_config = PlatformConfig(
                 platform="reddit",
@@ -396,7 +401,17 @@ class SimulationConfigGenerator:
                 viral_threshold=15,
                 echo_chamber_strength=0.6
             )
-        
+
+        if enable_whatsapp:
+            whatsapp_config = PlatformConfig(
+                platform="whatsapp",
+                recency_weight=0.2,
+                popularity_weight=0.3,
+                relevance_weight=0.5,
+                viral_threshold=5,
+                echo_chamber_strength=0.7
+            )
+
         # Build final parameters
         params = SimulationParameters(
             simulation_id=simulation_id,
@@ -408,6 +423,7 @@ class SimulationConfigGenerator:
             event_config=event_config,
             twitter_config=twitter_config,
             reddit_config=reddit_config,
+            whatsapp_config=whatsapp_config,
             llm_model=self.model_name,
             llm_base_url=self.base_url,
             generation_reasoning=" | ".join(reasoning_parts)

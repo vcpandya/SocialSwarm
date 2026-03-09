@@ -278,7 +278,14 @@
     "tz_asia_shanghai": "中国 (CST, UTC+8)",
     "tz_america_new_york": "美东 (EST, UTC-5)",
     "tz_america_los_angeles": "美西 (PST, UTC-8)",
-    "tz_utc": "UTC (UTC+0)"
+    "tz_utc": "UTC (UTC+0)",
+    "whatsapp": "WhatsApp",
+    "whatsappGroup": "WhatsApp 群组",
+    "whatsappEnabled": "启用 WhatsApp 模拟",
+    "whatsappConfig": "WhatsApp 群组配置",
+    "whatsappImport": "导入 WhatsApp 聊天记录",
+    "whatsappImportDesc": "上传 WhatsApp 聊天导出文件 (.txt) 作为模拟种子",
+    "platform3WhatsApp": "平台 3：WhatsApp 群组"
   },
   "step3": {
     "launchingBtnText": "启动中...",

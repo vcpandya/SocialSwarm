@@ -115,6 +115,35 @@ class OasisAgentProfile:
         
         return profile
     
+    def to_whatsapp_format(self) -> Dict[str, Any]:
+        """Convert to WhatsApp platform format (uses Reddit under the hood with WhatsApp-specific fields)"""
+        profile = {
+            "user_id": self.user_id,
+            "username": self.user_name,
+            "name": self.name,
+            "bio": self.bio,
+            "persona": self.persona,
+            "phone_prefix": "+91" if self.country == "India" else "+1",
+            "group_member": True,
+            "created_at": self.created_at,
+        }
+
+        # Add additional persona information (if available)
+        if self.age:
+            profile["age"] = self.age
+        if self.gender:
+            profile["gender"] = self.gender
+        if self.mbti:
+            profile["mbti"] = self.mbti
+        if self.country:
+            profile["country"] = self.country
+        if self.profession:
+            profile["profession"] = self.profession
+        if self.interested_topics:
+            profile["interested_topics"] = self.interested_topics
+
+        return profile
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to full dictionary format"""
         return {
@@ -1059,6 +1088,8 @@ Important:
         """
         if platform == "twitter":
             self._save_twitter_csv(profiles, file_path)
+        elif platform == "whatsapp":
+            self._save_whatsapp_json(profiles, file_path)
         else:
             self._save_reddit_json(profiles, file_path)
     
@@ -1188,6 +1219,37 @@ Important:
         
         logger.info(f"Saved {len(profiles)} Reddit Profiles to {file_path} (JSON format, includes user_id field)")
     
+    def _save_whatsapp_json(self, profiles: List[OasisAgentProfile], file_path: str):
+        """
+        Save WhatsApp Profile as JSON format.
+
+        Uses Reddit-compatible format under the hood (since OASIS doesn't have native WhatsApp support)
+        with WhatsApp-specific fields (phone_prefix, group_member).
+        """
+        data = []
+        for idx, profile in enumerate(profiles):
+            item = profile.to_whatsapp_format()
+            # Ensure user_id is set
+            item["user_id"] = profile.user_id if profile.user_id is not None else idx
+            # Ensure required fields have default values
+            if not item.get("age") and profile.age:
+                item["age"] = profile.age
+            elif not item.get("age"):
+                item["age"] = 30
+            if not item.get("gender"):
+                item["gender"] = self._normalize_gender(profile.gender)
+            if not item.get("mbti") and profile.mbti:
+                item["mbti"] = profile.mbti
+            elif not item.get("mbti"):
+                item["mbti"] = "ISTJ"
+
+            data.append(item)
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Saved {len(profiles)} WhatsApp Profiles to {file_path} (JSON format)")
+
     # Keep old method name as alias for backward compatibility
     def save_profiles_to_json(
         self,

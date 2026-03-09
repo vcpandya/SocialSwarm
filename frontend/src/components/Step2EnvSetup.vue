@@ -49,6 +49,46 @@
               <option value="utc">{{ $t('step2.tz_utc') }}</option>
             </select>
           </div>
+
+          <!-- WhatsApp Platform Toggle -->
+          <div class="config-item" style="margin-top: 12px;">
+            <label class="switch-control">
+              <input type="checkbox" v-model="enableWhatsApp">
+              <span class="switch-track"></span>
+              <span class="switch-label">{{ $t('step2.whatsappEnabled') }}</span>
+            </label>
+          </div>
+
+          <!-- WhatsApp Config (shown when enabled) -->
+          <div v-if="enableWhatsApp" class="whatsapp-config-section" style="margin-top: 12px;">
+            <div class="info-card">
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.whatsappConfig') }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.relevanceWeight') }}</span>
+                <span class="info-value">0.5</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.echoChamberStrength') }}</span>
+                <span class="info-value">0.7</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ $t('step2.viralThreshold') }}</span>
+                <span class="info-value">5</span>
+              </div>
+            </div>
+
+            <!-- WhatsApp Chat Import -->
+            <div class="whatsapp-import-section" style="margin-top: 8px;">
+              <span class="info-label">{{ $t('step2.whatsappImport') }}</span>
+              <p class="description" style="margin: 4px 0 8px 0; font-size: 12px;">{{ $t('step2.whatsappImportDesc') }}</p>
+              <label class="file-upload-area">
+                <input type="file" accept=".txt" @change="handleWhatsAppImport" style="display: none;">
+                <span class="upload-text">{{ whatsappImportFile ? whatsappImportFile.name : $t('step2.whatsappImport') }}</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -336,6 +376,33 @@
                     <div class="param-row">
                       <span class="param-label">{{ $t('step2.echoChamberStrength') }}</span>
                       <span class="param-value">{{ simulationConfig.reddit_config.echo_chamber_strength }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="simulationConfig.whatsapp_config" class="platform-card">
+                  <div class="platform-card-header">
+                    <span class="platform-name">{{ $t('step2.platform3WhatsApp') }}</span>
+                  </div>
+                  <div class="platform-params">
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.recencyWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.whatsapp_config.recency_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.popularityWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.whatsapp_config.popularity_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.relevanceWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.whatsapp_config.relevance_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.viralThreshold') }}</span>
+                      <span class="param-value">{{ simulationConfig.whatsapp_config.viral_threshold }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.echoChamberStrength') }}</span>
+                      <span class="param-value">{{ simulationConfig.whatsapp_config.echo_chamber_strength }}</span>
                     </div>
                   </div>
                 </div>
@@ -688,6 +755,8 @@ let lastLoggedConfigStage = ''
 
 // Timezone selection
 const selectedTimezone = ref('asia_kolkata')
+const enableWhatsApp = ref(false)
+const whatsappImportFile = ref(null)
 
 // Simulation rounds configuration
 const useCustomRounds = ref(false) // Default to auto-configured rounds
@@ -780,6 +849,14 @@ const truncateBio = (bio) => {
     return bio.substring(0, 80) + '...'
   }
   return bio
+}
+
+const handleWhatsAppImport = (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    whatsappImportFile.value = file
+    addLog(`WhatsApp chat file selected: ${file.name}`)
+  }
 }
 
 const selectProfile = (profile) => {
@@ -1762,7 +1839,7 @@ onUnmounted(() => {
 /* Platforms Grid */
 .platforms-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
 }
 
@@ -1770,6 +1847,31 @@ onUnmounted(() => {
   background: #F9F9F9;
   padding: 14px;
   border-radius: 6px;
+}
+
+.file-upload-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border: 1px dashed #CCC;
+  border-radius: 6px;
+  background: #FAFAFA;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.file-upload-area:hover {
+  border-color: #999;
+}
+
+.upload-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.whatsapp-config-section .info-card {
+  background: #F0FFF0;
 }
 
 .platform-card-header {

@@ -57,6 +57,13 @@ class Config:
         'LIKE_COMMENT', 'DISLIKE_COMMENT', 'SEARCH_POSTS', 'SEARCH_USER',
         'TREND', 'REFRESH', 'DO_NOTHING', 'FOLLOW', 'MUTE'
     ]
+    OASIS_WHATSAPP_ACTIONS = [
+        'CREATE_POST',      # Send message to group
+        'CREATE_COMMENT',   # Reply to a message
+        'LIKE_POST',        # React to message
+        'SEARCH_POSTS',     # Search in chat
+        'DO_NOTHING',       # Lurk / read messages
+    ]
 
     # Report Agent configuration
     REPORT_AGENT_MAX_TOOL_CALLS = int(os.environ.get('REPORT_AGENT_MAX_TOOL_CALLS', '5'))
