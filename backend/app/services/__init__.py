@@ -36,6 +36,7 @@ from .simulation_ipc import (
     CommandType,
     CommandStatus
 )
+from .news_feed import NewsFeedService, NewsFeedConfig, NewsArticle
 
 __all__ = [
     'OntologyGenerator', 
@@ -69,5 +70,8 @@ __all__ = [
     'IPCResponse',
     'CommandType',
     'CommandStatus',
+    'NewsFeedService',
+    'NewsFeedConfig',
+    'NewsArticle',
 ]
 
