@@ -1,0 +1,70 @@
+{
+  "by_scenario": {
+    "regulatory_policy": [
+      {
+        "entity_type": "government_official",
+        "content": "We are pleased to announce the new Digital Data Protection Rules 2026. These rules aim to safeguard citizen data while fostering innovation. Full details: [link] #DigitalIndia #DataProtection",
+        "sentiment": 0.6,
+        "engagement_potential": "high"
+      },
+      {
+        "entity_type": "tech_company",
+        "content": "We've reviewed the new data protection rules and while we support the intent, several provisions could significantly impact startup operations. We're preparing a detailed response. Thread below",
+        "sentiment": -0.2,
+        "engagement_potential": "high"
+      },
+      {
+        "entity_type": "privacy_advocate",
+        "content": "Finally! The data protection rules are a step in the right direction, but they don't go far enough. Here's what's missing and why it matters for every Indian internet user:",
+        "sentiment": 0.3,
+        "engagement_potential": "medium"
+      },
+      {
+        "entity_type": "general_public",
+        "content": "Can someone explain what these new data rules mean for normal people? Will apps still track everything we do?",
+        "sentiment": -0.1,
+        "engagement_potential": "medium"
+      }
+    ],
+    "stock_market_event": [
+      {
+        "entity_type": "financial_journalist",
+        "content": "BREAKING: Sensex drops 800 points in morning trade amid global sell-off. IT stocks leading the decline. Nifty tests key support at 22,000. Live updates below.",
+        "sentiment": -0.5,
+        "engagement_potential": "high"
+      },
+      {
+        "entity_type": "retail_investor",
+        "content": "Portfolio down 5% today. Should have taken profits last week. Anyone else holding or panic selling?",
+        "sentiment": -0.7,
+        "engagement_potential": "high"
+      },
+      {
+        "entity_type": "financial_analyst",
+        "content": "Correction was overdue. Current valuations were stretched. This is healthy consolidation. My key levels to watch: Nifty 21,800 support, 22,500 resistance. Don't panic, stay systematic.",
+        "sentiment": 0.2,
+        "engagement_potential": "medium"
+      }
+    ],
+    "election_campaign": [
+      {
+        "entity_type": "party_supporter",
+        "content": "Historic rally today! Over 50,000 people came to hear our leader speak. The wave is real. Change is coming! #Election2026",
+        "sentiment": 0.8,
+        "engagement_potential": "high"
+      },
+      {
+        "entity_type": "political_analyst",
+        "content": "Interesting ground-level data emerging from the constituencies. Urban-rural divide in voting preferences widening. Thread on what the data shows:",
+        "sentiment": 0.0,
+        "engagement_potential": "medium"
+      },
+      {
+        "entity_type": "fact_checker",
+        "content": "FACT CHECK: Viral claim that [Party X] promised free laptops to all students is MISLEADING. The actual promise was subsidized tablets for government school students only. Source: official manifesto page 47.",
+        "sentiment": 0.0,
+        "engagement_potential": "high"
+      }
+    ]
+  }
+}

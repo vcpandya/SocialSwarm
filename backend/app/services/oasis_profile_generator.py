@@ -21,6 +21,7 @@ from zep_cloud.client import Zep
 from ..config import Config
 from ..utils.logger import get_logger
 from .zep_entity_reader import EntityNode, ZepEntityReader
+from .proxy_data_loader import ProxyDataLoader
 
 logger = get_logger('mirofish.oasis_profile')
 
@@ -806,6 +807,12 @@ class OasisProfileGenerator:
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
 
+        # Get few-shot persona examples from proxy data
+        loader = ProxyDataLoader.get_instance()
+        persona_examples_text = loader.format_persona_examples_for_prompt(
+            entity_type=entity_type
+        )
+
         return f"""Generate a detailed social media user persona for an entity, restoring the existing real-world situation as much as possible.
 
 Entity name: {entity_name}
@@ -847,7 +854,7 @@ Regional and Cultural Dimensions (generate appropriate values based on the entit
 17. religion: Religious background if relevant to the simulation context, or "" if not applicable
 18. education_medium: (India-specific) Medium of education — "English medium", "Hindi medium", "Regional medium", or "" if not applicable
 19. ethnicity: (US-specific) Cultural background if relevant — e.g., "African American", "Hispanic", "Asian American", "White", or "" if not applicable
-
+{persona_examples_text}
 Important:
 - All field values must be strings or numbers, do not use newline characters
 - persona must be a coherent text description
@@ -869,6 +876,12 @@ Important:
 
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No additional context"
+
+        # Get few-shot persona examples from proxy data
+        loader = ProxyDataLoader.get_instance()
+        persona_examples_text = loader.format_persona_examples_for_prompt(
+            entity_type=entity_type
+        )
 
         return f"""Generate a detailed social media account profile for an institutional/group entity, restoring the existing real-world situation as much as possible.
 
@@ -907,7 +920,7 @@ Regional and Cultural Dimensions (generate appropriate values based on the insti
 13. political_leaning: Institutional political orientation if relevant — "progressive", "moderate", "conservative", "libertarian", or "apolitical"
 14. media_diet: Primary information dissemination channels — "mainstream", "social-media-first", "alternative", or "mixed"
 15. generation: Primary target audience generation — "gen-z", "millennial", "gen-x", "boomer", or "multi-generational"
-
+{persona_examples_text}
 Important:
 - All field values must be strings or numbers, null values not allowed
 - persona must be a coherent text description, do not use newline characters

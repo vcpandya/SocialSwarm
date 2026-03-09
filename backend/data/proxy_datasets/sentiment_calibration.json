@@ -1,0 +1,60 @@
+{
+  "calibration_examples": [
+    {
+      "content": "This new policy is absolutely terrible. Nobody asked for it and it will destroy small businesses!",
+      "sentiment": -0.85,
+      "emotions": {"anger": 0.9, "fear": 0.4, "sadness": 0.2, "joy": 0.0, "surprise": 0.1, "disgust": 0.5},
+      "topics": ["policy", "small_business"],
+      "stance": {"policy": "oppose"}
+    },
+    {
+      "content": "Great initiative by the government! This will really help the common man. Long overdue.",
+      "sentiment": 0.8,
+      "emotions": {"joy": 0.8, "surprise": 0.2, "anger": 0.0, "sadness": 0.0, "fear": 0.0, "disgust": 0.0},
+      "topics": ["government", "welfare"],
+      "stance": {"government": "support"}
+    },
+    {
+      "content": "Interesting perspective, though I'm not entirely convinced. Need to see more data before forming an opinion.",
+      "sentiment": 0.1,
+      "emotions": {"surprise": 0.3, "joy": 0.0, "anger": 0.0, "sadness": 0.0, "fear": 0.1, "disgust": 0.0},
+      "topics": ["general"],
+      "stance": {"general": "neutral"}
+    },
+    {
+      "content": "Yaar ye toh bahut galat hai! Students ko kaise affect karega ye sochna chahiye tha",
+      "sentiment": -0.6,
+      "emotions": {"anger": 0.7, "sadness": 0.3, "fear": 0.2, "joy": 0.0, "surprise": 0.1, "disgust": 0.3},
+      "topics": ["education", "student_impact"],
+      "stance": {"policy": "oppose"}
+    },
+    {
+      "content": "Market correction was expected. Good opportunity to accumulate quality stocks at lower levels. Stay patient.",
+      "sentiment": 0.3,
+      "emotions": {"joy": 0.2, "surprise": 0.0, "anger": 0.0, "sadness": 0.0, "fear": 0.0, "disgust": 0.0},
+      "topics": ["stock_market", "investing"],
+      "stance": {"market": "support"}
+    },
+    {
+      "content": "This is peak comedy. Can't believe they actually said this with a straight face",
+      "sentiment": -0.3,
+      "emotions": {"joy": 0.5, "surprise": 0.4, "disgust": 0.3, "anger": 0.2, "sadness": 0.0, "fear": 0.0},
+      "topics": ["humor", "politics"],
+      "stance": {"general": "oppose"}
+    },
+    {
+      "content": "I'm worried about what this means for our privacy. Has anyone read the full document? Sharing concerns thread:",
+      "sentiment": -0.4,
+      "emotions": {"fear": 0.6, "sadness": 0.3, "anger": 0.2, "surprise": 0.1, "joy": 0.0, "disgust": 0.1},
+      "topics": ["privacy", "data_protection"],
+      "stance": {"privacy": "support"}
+    },
+    {
+      "content": "Just sharing factual update: The committee has released its report. 230 pages. Key findings in the summary section. Link below.",
+      "sentiment": 0.05,
+      "emotions": {"surprise": 0.1, "joy": 0.0, "anger": 0.0, "sadness": 0.0, "fear": 0.0, "disgust": 0.0},
+      "topics": ["news", "committee_report"],
+      "stance": {"general": "neutral"}
+    }
+  ]
+}

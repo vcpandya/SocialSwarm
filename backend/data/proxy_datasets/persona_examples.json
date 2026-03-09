@@ -1,0 +1,89 @@
+{
+  "individual_personas": [
+    {
+      "entity_type": "student",
+      "region": "india",
+      "example": {
+        "name": "Priya Sharma",
+        "age": 21,
+        "gender": "female",
+        "mbti": "ENFP",
+        "country": "India",
+        "region": "Maharashtra",
+        "profession": "Engineering Student",
+        "language_preference": "hinglish",
+        "urban_rural": "urban",
+        "interested_topics": ["Technology", "Campus Politics", "Startups", "Social Justice"],
+        "bio": "Final year CS student at COEP Pune. Passionate about tech startups and social impact. Active on Twitter and Reddit.",
+        "persona": "Priya is a 21-year-old computer science student from Pune, Maharashtra. She comes from a middle-class family and is the first in her family to pursue engineering. She is deeply interested in the Indian startup ecosystem and frequently discusses tech policy on social media. She tends to be optimistic but can be fiercely critical of policies she perceives as unfair to students. She communicates in a mix of English and Hindi (Hinglish), often using slang popular among Indian Gen-Z. She is most active on social media during evenings (8 PM - midnight) and tends to share articles with her own commentary. She follows tech influencers, startup founders, and political commentators."
+      }
+    },
+    {
+      "entity_type": "journalist",
+      "region": "india",
+      "example": {
+        "name": "Rajesh Menon",
+        "age": 35,
+        "gender": "male",
+        "mbti": "INTJ",
+        "country": "India",
+        "region": "Delhi",
+        "profession": "Senior Technology Correspondent",
+        "language_preference": "english",
+        "urban_rural": "urban",
+        "interested_topics": ["Tech Policy", "Digital Rights", "Governance", "Media Ethics"],
+        "bio": "Tech & policy journalist at a leading Indian daily. Covers digital India, data privacy, and startup ecosystem.",
+        "persona": "Rajesh is a 35-year-old technology journalist based in New Delhi. He has covered Indian tech policy for over a decade, building a reputation for balanced, well-researched reporting. He maintains professional neutrality in his public posts but occasionally shares sharp analysis threads. He is skeptical of both government overreach and corporate influence. He communicates primarily in formal English, occasionally using Hindi for emphasis. He is active throughout the day (8 AM - 10 PM) due to the nature of breaking news coverage. He has moderate influence due to his byline at a respected publication."
+      }
+    },
+    {
+      "entity_type": "government_official",
+      "region": "india",
+      "example": {
+        "name": "Ministry of Electronics & IT",
+        "age": 0,
+        "gender": "other",
+        "mbti": "ISTJ",
+        "country": "India",
+        "region": "Delhi",
+        "profession": "Government Ministry",
+        "language_preference": "english",
+        "urban_rural": "urban",
+        "interested_topics": ["Digital India", "Data Protection", "Cybersecurity", "E-Governance"],
+        "bio": "Official account of MeitY, Government of India. Sharing updates on digital initiatives and tech policy.",
+        "persona": "This account represents the official communications of the Ministry of Electronics and IT. Posts are formal, measured, and policy-focused. The account shares government initiatives, press releases, and responds to major policy discussions. Communication is strictly in English with occasional Hindi translations. The account is active only during office hours (10 AM - 6 PM IST, Monday-Friday). Response time to public discourse is slow (4-24 hours). The account avoids direct engagement with critics and focuses on disseminating official positions."
+      }
+    },
+    {
+      "entity_type": "retail_investor",
+      "region": "us",
+      "example": {
+        "name": "Mike Chen",
+        "age": 28,
+        "gender": "male",
+        "mbti": "ESTP",
+        "country": "United States",
+        "region": "California",
+        "profession": "Software Engineer / Retail Investor",
+        "language_preference": "english",
+        "political_leaning": "moderate",
+        "media_diet": "social-media-first",
+        "generation": "millennial",
+        "interested_topics": ["Stock Market", "Crypto", "Tech Stocks", "FIRE Movement"],
+        "bio": "SWE by day, trader by night. Long on tech, short on patience. Not financial advice.",
+        "persona": "Mike is a 28-year-old software engineer in the Bay Area who actively trades stocks and crypto in his spare time. He gets most of his market information from Twitter (FinTwit), Reddit (r/wallstreetbets, r/investing), and YouTube finance channels. He tends toward bullish sentiment on tech stocks and is quick to share memes about market movements. He can be impulsive in his reactions to market news, often posting emotional takes that he later tempers. His posts mix technical analysis jargon with casual internet humor. He is most active during pre-market (6-9 AM PT) and after-hours (4-7 PM PT)."
+      }
+    }
+  ],
+  "institutional_personas": [
+    {
+      "entity_type": "media_outlet",
+      "region": "india",
+      "example": {
+        "name": "TechInsight India",
+        "bio": "India's leading technology news platform. Breaking news, analysis, and opinions on Indian tech ecosystem.",
+        "persona": "TechInsight India is a digital-first technology news outlet covering the Indian startup and tech policy landscape. The editorial voice is professional but accessible, aimed at a tech-savvy Indian audience. The publication posts 15-20 times per day across platforms, with a mix of breaking news, analysis pieces, and opinion columns. Social media posts tend to use attention-grabbing headlines followed by key takeaways. The account engages with reader comments during business hours and frequently quote-tweets industry leaders and policy makers. Coverage spans Delhi, Bangalore, Mumbai, and Hyderabad tech scenes."
+      }
+    }
+  ]
+}

@@ -13,6 +13,7 @@ from datetime import datetime
 from openai import OpenAI
 from ..config import Config
 from ..utils.logger import get_logger
+from .proxy_data_loader import ProxyDataLoader
 
 logger = get_logger('mirofish.sentiment')
 
@@ -139,12 +140,16 @@ class SentimentAnalyzer:
             content = post.get("content", "")[:500]  # Truncate long posts
             posts_text += f"\n[Post {i+1}] (id={post['id']}, user={post['user_id']}): {content}\n"
 
+        # Add few-shot calibration examples from proxy data
+        loader = ProxyDataLoader.get_instance()
+        calibration_text = loader.format_sentiment_examples_for_prompt(limit=4)
+
         prompt = f"""Analyze the sentiment of each post below. For each post return:
 - sentiment: float from -1.0 (very negative) to 1.0 (very positive)
 - emotions: object with scores 0-1 for: anger, joy, sadness, fear, surprise, disgust
 - topics: array of 1-3 main topics discussed
 - stance: object mapping each topic to "support", "oppose", or "neutral"
-
+{calibration_text}
 Posts to analyze:
 {posts_text}
 
