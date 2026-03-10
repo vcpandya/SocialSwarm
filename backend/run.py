@@ -24,14 +24,13 @@ from app.config import Config
 
 def main():
     """Main function"""
-    # Validate configuration
+    # Validate configuration — warn but don't exit so the setup wizard can be used
     errors = Config.validate()
     if errors:
-        print("Configuration error:")
+        print("Configuration warnings (can be set via Settings page):")
         for err in errors:
             print(f"  - {err}")
-        print("\nPlease check the configuration in the .env file")
-        sys.exit(1)
+        print("\nThe server will start anyway. Use the Settings page to configure missing values.")
 
     # Create application
     app = create_app()

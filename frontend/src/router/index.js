@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { fetchConfigStatus, getConfigStatus } from '../store/configStatus'
 
 const routes = [
   {
@@ -43,6 +44,16 @@ const routes = [
     props: true
   },
   {
+    path: '/setup',
+    name: 'Setup',
+    component: () => import('../views/SetupWizard.vue')
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../views/SettingsPage.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/NotFound.vue')
@@ -52,6 +63,25 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(async (to, from, next) => {
+  // Don't guard the setup page itself
+  if (to.name === 'Setup') {
+    next()
+    return
+  }
+
+  const status = getConfigStatus()
+  if (!status.isLoaded) {
+    await fetchConfigStatus()
+  }
+
+  if (status.configured === false) {
+    next({ name: 'Setup' })
+  } else {
+    next()
+  }
 })
 
 export default router
