@@ -14,7 +14,7 @@
           class="progress-step"
           :class="{ active: s === step, completed: s < step }"
         >
-          <span class="step-dot">{{ s < step ? '\u2713' : s }}</span>
+          <span class="step-dot">{{ s < step ? '✓' : s }}</span>
           <span class="step-label">{{ stepLabels[s - 1] }}</span>
         </div>
       </div>
@@ -65,7 +65,7 @@
           <button class="test-btn" @click="testLlm" :disabled="testingLlm || !llm.apiKey">
             {{ testingLlm ? 'Testing...' : 'Test Connection' }}
           </button>
-          <span v-if="llmTestResult === 'success'" class="test-success">\u2713 Connected</span>
+          <span v-if="llmTestResult === 'success'" class="test-success">&#x2713; Connected</span>
           <span v-if="llmTestResult === 'error'" class="test-error">{{ llmTestError }}</span>
         </div>
 
@@ -102,7 +102,7 @@
           <button class="test-btn" @click="testZep" :disabled="testingZep || !zep.apiKey">
             {{ testingZep ? 'Testing...' : 'Test Connection' }}
           </button>
-          <span v-if="zepTestResult === 'success'" class="test-success">\u2713 Connected</span>
+          <span v-if="zepTestResult === 'success'" class="test-success">&#x2713; Connected</span>
           <span v-if="zepTestResult === 'error'" class="test-error">{{ zepTestError }}</span>
         </div>
 
