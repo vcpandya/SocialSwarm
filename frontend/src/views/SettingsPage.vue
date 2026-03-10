@@ -371,48 +371,54 @@ function markChanged(field) {
   changedKeys[field] = true
 }
 
-// Build payload for a section, omitting unchanged masked API keys
+// Build nested payload for a section, omitting unchanged masked API keys
 function buildPayload(group) {
   const payloads = {
     llm: () => {
       const data = {
-        llm_base_url: form.llm_base_url,
-        llm_model_name: form.llm_model_name
+        base_url: form.llm_base_url,
+        model_name: form.llm_model_name
       }
       if (changedKeys.llm_api_key) {
-        data.llm_api_key = form.llm_api_key
+        data.api_key = form.llm_api_key
       }
-      return data
+      return { llm: data }
     },
     zep: () => {
       const data = {}
       if (changedKeys.zep_api_key) {
-        data.zep_api_key = form.zep_api_key
+        data.api_key = form.zep_api_key
       }
-      return data
+      return { zep: data }
     },
     boost: () => {
       const data = {
-        boost_base_url: form.boost_base_url,
-        boost_model_name: form.boost_model_name
+        base_url: form.boost_base_url,
+        model_name: form.boost_model_name
       }
       if (changedKeys.boost_api_key) {
-        data.boost_api_key = form.boost_api_key
+        data.api_key = form.boost_api_key
       }
-      return data
+      return { boost_llm: data }
     },
     simulation: () => ({
-      max_rounds: form.max_rounds,
-      chunk_size: form.chunk_size,
-      chunk_overlap: form.chunk_overlap
+      simulation: {
+        max_rounds: form.max_rounds,
+        chunk_size: form.chunk_size,
+        chunk_overlap: form.chunk_overlap
+      }
     }),
     report: () => ({
-      max_tool_calls: form.max_tool_calls,
-      max_reflection_rounds: form.max_reflection_rounds,
-      temperature: form.temperature
+      report_agent: {
+        max_tool_calls: form.max_tool_calls,
+        max_reflection_rounds: form.max_reflection_rounds,
+        temperature: form.temperature
+      }
     }),
     app: () => ({
-      language: form.language
+      app: {
+        language: form.language
+      }
     })
   }
   return payloads[group]()
@@ -422,14 +428,24 @@ async function testAndSave(group) {
   saving[group] = true
   try {
     const payload = buildPayload(group)
-    // Validate first
-    const validateRes = await validateSettings(group, payload)
-    if (validateRes.data && validateRes.data.valid === false) {
-      showToast(validateRes.data.message || 'Validation failed', 'error')
+    // Extract inner values for validation (buildPayload wraps in {group: {...}})
+    const groupKey = group === 'boost' ? 'boost_llm' : group
+    const validateValues = payload[groupKey] || {}
+    // For validation, send actual key values (not masked)
+    if (group === 'llm') {
+      validateValues.api_key = changedKeys.llm_api_key ? form.llm_api_key : undefined
+      validateValues.base_url = form.llm_base_url
+      validateValues.model_name = form.llm_model_name
+    } else if (group === 'zep') {
+      validateValues.api_key = changedKeys.zep_api_key ? form.zep_api_key : undefined
+    }
+    const validateRes = await validateSettings(group, validateValues)
+    if (validateRes.valid === false) {
+      showToast(validateRes.message || validateRes.error || 'Validation failed', 'error')
       return
     }
     // Then save
-    await saveSettings({ group, ...payload })
+    await saveSettings(payload)
     showToast(`${group.toUpperCase()} configuration saved successfully`)
   } catch (err) {
     const msg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Save failed'
@@ -443,7 +459,7 @@ async function saveSection(group) {
   saving[group] = true
   try {
     const payload = buildPayload(group)
-    await saveSettings({ group, ...payload })
+    await saveSettings(payload)
     showToast(`${group.charAt(0).toUpperCase() + group.slice(1)} settings saved successfully`)
   } catch (err) {
     const msg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Save failed'
@@ -472,16 +488,31 @@ onMounted(async () => {
   try {
     const res = await getSettings()
     const data = res.data || {}
-    // Populate form with loaded values, keeping defaults for missing fields
-    Object.keys(form).forEach(key => {
-      if (data[key] !== undefined && data[key] !== null) {
-        form[key] = data[key]
-      }
-    })
-    // Set language from current locale if not provided by backend
-    if (!data.language) {
-      form.language = getLocale()
+    // Map nested response to flat form fields
+    if (data.llm) {
+      form.llm_api_key = data.llm.api_key || ''
+      form.llm_base_url = data.llm.base_url || ''
+      form.llm_model_name = data.llm.model_name || ''
     }
+    if (data.zep) {
+      form.zep_api_key = data.zep.api_key || ''
+    }
+    if (data.boost_llm) {
+      form.boost_api_key = data.boost_llm.api_key || ''
+      form.boost_base_url = data.boost_llm.base_url || ''
+      form.boost_model_name = data.boost_llm.model_name || ''
+    }
+    if (data.simulation) {
+      form.max_rounds = data.simulation.max_rounds ?? 10
+      form.chunk_size = data.simulation.chunk_size ?? 500
+      form.chunk_overlap = data.simulation.chunk_overlap ?? 50
+    }
+    if (data.report_agent) {
+      form.max_tool_calls = data.report_agent.max_tool_calls ?? 5
+      form.max_reflection_rounds = data.report_agent.max_reflection_rounds ?? 2
+      form.temperature = data.report_agent.temperature ?? 0.5
+    }
+    form.language = data.app?.language || getLocale()
   } catch (err) {
     showToast('Failed to load settings', 'error')
   } finally {

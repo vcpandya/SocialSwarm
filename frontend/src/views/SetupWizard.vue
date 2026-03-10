@@ -293,15 +293,15 @@ async function testLlm() {
   llmTestError.value = ''
   try {
     const res = await validateSettings('llm', {
-      apiKey: llm.apiKey,
-      baseUrl: llm.baseUrl,
-      modelName: llm.modelName,
+      api_key: llm.apiKey,
+      base_url: llm.baseUrl,
+      model_name: llm.modelName,
     })
-    if (res.data?.success || res.success) {
+    if (res.valid) {
       llmTestResult.value = 'success'
     } else {
       llmTestResult.value = 'error'
-      llmTestError.value = res.data?.message || res.message || 'Connection failed'
+      llmTestError.value = res.message || res.error || 'Connection failed'
     }
   } catch (e) {
     llmTestResult.value = 'error'
@@ -323,12 +323,12 @@ async function testZep() {
   zepTestResult.value = ''
   zepTestError.value = ''
   try {
-    const res = await validateSettings('zep', { apiKey: zep.apiKey })
-    if (res.data?.success || res.success) {
+    const res = await validateSettings('zep', { api_key: zep.apiKey })
+    if (res.valid) {
       zepTestResult.value = 'success'
     } else {
       zepTestResult.value = 'error'
-      zepTestError.value = res.data?.message || res.message || 'Connection failed'
+      zepTestError.value = res.message || res.error || 'Connection failed'
     }
   } catch (e) {
     zepTestResult.value = 'error'
@@ -359,32 +359,34 @@ async function completeSetup() {
   try {
     const payload = {
       llm: {
-        apiKey: llm.apiKey,
-        baseUrl: llm.baseUrl,
-        modelName: llm.modelName,
+        api_key: llm.apiKey,
+        base_url: llm.baseUrl,
+        model_name: llm.modelName,
       },
       zep: {
-        apiKey: zep.apiKey,
+        api_key: zep.apiKey,
       },
-      boost: {
-        apiKey: boost.apiKey || undefined,
-        baseUrl: boost.baseUrl || undefined,
-        modelName: boost.modelName || undefined,
+      boost_llm: {
+        api_key: boost.apiKey || undefined,
+        base_url: boost.baseUrl || undefined,
+        model_name: boost.modelName || undefined,
       },
-      defaults: {
-        maxRounds: defaults.maxRounds,
+      simulation: {
+        max_rounds: defaults.maxRounds,
+      },
+      report_agent: {
         temperature: defaults.temperature,
       },
     }
     const res = await saveSettings(payload)
-    if (res.data?.success !== false && res.success !== false) {
+    if (res.success !== false) {
       setConfigured(true)
       router.push('/')
     } else {
-      saveError.value = res.data?.message || res.message || 'Failed to save settings'
+      saveError.value = res.error || res.message || 'Failed to save settings'
     }
   } catch (e) {
-    saveError.value = e.response?.data?.message || e.message || 'Failed to save settings'
+    saveError.value = e.response?.data?.error || e.message || 'Failed to save settings'
   } finally {
     saving.value = false
   }
