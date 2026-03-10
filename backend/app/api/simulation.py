@@ -22,6 +22,7 @@ from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.sentiment_analyzer import SentimentAnalyzer
 from ..services.news_feed import NewsFeedService, NewsFeedConfig
 from ..services.scenario_templates import get_template, list_templates
+from ..services.proxy_data_loader import ProxyDataLoader
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
 
@@ -3471,6 +3472,210 @@ def apply_scenario_template(simulation_id):
 
     except Exception as e:
         logger.error(f"Failed to apply scenario template to simulation {simulation_id}: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/scrape', methods=['POST'])
+def scrape_sources():
+    """Scrape web sources for persona enrichment"""
+    data = request.get_json() or {}
+    urls = data.get('urls', [])
+    keywords = data.get('keywords', [])
+
+    if not urls:
+        return jsonify({"error": "Please provide at least one URL"}), 400
+
+    if len(urls) > 10:
+        return jsonify({"error": "Maximum 10 URLs per request"}), 400
+
+    from ..services.source_scraper import SourceScraper, ScrapeConfig
+
+    scraper = SourceScraper()
+    config = ScrapeConfig(urls=urls, keywords=keywords)
+    sources = scraper.scrape_urls(config)
+
+    return jsonify({
+        "success": True,
+        "sources_scraped": len(sources),
+        "sources": [s.to_dict() for s in sources],
+        "persona_context": scraper.scrape_to_persona_context(sources),
+    })
+
+
+@simulation_bp.route('/api/simulation/<simulation_id>/enrich-personas', methods=['POST'])
+def enrich_personas_with_sources(simulation_id):
+    """Scrape sources and inject context into simulation for persona enrichment"""
+    data = request.get_json() or {}
+    urls = data.get('urls', [])
+    keywords = data.get('keywords', [])
+
+    if not urls:
+        return jsonify({"error": "Please provide at least one URL"}), 400
+
+    from ..services.source_scraper import SourceScraper, ScrapeConfig
+
+    scraper = SourceScraper()
+    config = ScrapeConfig(urls=urls, keywords=keywords)
+    sources = scraper.scrape_urls(config)
+
+    if not sources:
+        return jsonify({"error": "No content could be scraped from the provided URLs"}), 400
+
+    # Save scraped context to simulation directory
+    sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+    if not os.path.exists(sim_dir):
+        return jsonify({"error": f"Simulation {simulation_id} not found"}), 404
+
+    context = scraper.scrape_to_persona_context(sources)
+    context_path = os.path.join(sim_dir, 'scraped_context.json')
+    with open(context_path, 'w', encoding='utf-8') as f:
+        json.dump(context, f, ensure_ascii=False, indent=2)
+
+    # Also save the prompt-ready format
+    prompt_context = scraper.format_for_prompt(sources)
+    prompt_path = os.path.join(sim_dir, 'scraped_prompt_context.txt')
+    with open(prompt_path, 'w', encoding='utf-8') as f:
+        f.write(prompt_context)
+
+    return jsonify({
+        "success": True,
+        "sources_scraped": len(sources),
+        "context_saved": context_path,
+        "topics_found": context.get("all_topics", []),
+        "entities_found": context.get("entity_mentions", [])[:20],
+    })
+
+
+# ============== Persona Archetype Endpoints ==============
+
+@simulation_bp.route('/api/archetypes', methods=['GET'])
+def list_archetypes():
+    """List available persona archetypes.
+
+    Query parameters:
+        category: Filter by category (disruptive, automated, influential,
+                  partisan, passive, corrective, constructive)
+    """
+    try:
+        category = request.args.get('category', None)
+        loader = ProxyDataLoader.get_instance()
+        archetypes = loader.get_archetypes(category=category)
+
+        # Also return available categories for the UI
+        all_archetypes = loader.get_archetypes()
+        categories = sorted(set(a.get('category', 'unknown') for a in all_archetypes))
+
+        return jsonify({
+            "success": True,
+            "archetypes": archetypes,
+            "categories": categories,
+            "total": len(archetypes),
+        })
+    except Exception as e:
+        logger.error(f"Failed to list archetypes: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/simulation/<simulation_id>/inject-archetypes', methods=['POST'])
+def inject_archetypes(simulation_id):
+    """Inject archetype personas into simulation config.
+
+    Accepts JSON body:
+        {
+            "archetypes": [
+                {"id": "troll_provocateur", "count": 3},
+                {"id": "bot_amplifier", "count": 5},
+                ...
+            ]
+        }
+
+    Updates the simulation's agent_configs with behavioral profiles
+    derived from the selected archetypes.
+    """
+    try:
+        data = request.get_json() or {}
+        archetype_requests = data.get('archetypes', [])
+
+        if not archetype_requests:
+            return jsonify({"success": False, "error": "No archetypes specified"}), 400
+
+        # Validate simulation exists
+        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+        if not os.path.exists(sim_dir):
+            return jsonify({"success": False, "error": f"Simulation {simulation_id} not found"}), 404
+
+        loader = ProxyDataLoader.get_instance()
+        injected_configs = []
+        errors = []
+
+        for req in archetype_requests:
+            archetype_id = req.get('id')
+            count = req.get('count', 1)
+
+            archetype = loader.get_archetype_by_id(archetype_id)
+            if not archetype:
+                errors.append(f"Archetype '{archetype_id}' not found")
+                continue
+
+            bp = archetype.get('behavioral_profile', {})
+            cs = archetype.get('communication_style', {})
+
+            for i in range(count):
+                agent_config = {
+                    "archetype_id": archetype_id,
+                    "archetype_name": archetype.get('name', ''),
+                    "archetype_category": archetype.get('category', ''),
+                    "instance_index": i,
+                    "persona_template": archetype.get('persona_template', ''),
+                    "activity_level": bp.get('activity_level', 0.5),
+                    "posts_per_hour": bp.get('posts_per_hour', 0.5),
+                    "comments_per_hour": bp.get('comments_per_hour', 1.0),
+                    "sentiment_bias": bp.get('sentiment_bias', 0.0),
+                    "stance": bp.get('stance', 'neutral'),
+                    "influence_weight": bp.get('influence_weight', 1.0),
+                    "response_delay_min": bp.get('response_delay_min', 5),
+                    "response_delay_max": bp.get('response_delay_max', 30),
+                    "communication_tone": cs.get('tone', ''),
+                    "communication_tactics": cs.get('tactics', []),
+                }
+                injected_configs.append(agent_config)
+
+        # Save injected archetype configs to simulation directory
+        archetype_config_path = os.path.join(sim_dir, 'injected_archetypes.json')
+        with open(archetype_config_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                "injected_at": str(uuid.uuid4())[:8],
+                "archetype_requests": archetype_requests,
+                "agent_configs": injected_configs,
+            }, f, ensure_ascii=False, indent=2)
+
+        # Also save the prompt-ready archetype text for LLM consumption
+        requested_ids = [r.get('id') for r in archetype_requests if loader.get_archetype_by_id(r.get('id'))]
+        prompt_text = loader.format_archetypes_for_prompt(archetype_ids=requested_ids)
+        prompt_path = os.path.join(sim_dir, 'archetype_prompt_context.txt')
+        with open(prompt_path, 'w', encoding='utf-8') as f:
+            f.write(prompt_text)
+
+        logger.info(f"Injected {len(injected_configs)} archetype agents into simulation {simulation_id}")
+
+        return jsonify({
+            "success": True,
+            "injected_count": len(injected_configs),
+            "agent_configs": injected_configs,
+            "errors": errors if errors else None,
+            "config_path": archetype_config_path,
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to inject archetypes into simulation {simulation_id}: {e}")
         return jsonify({
             "success": False,
             "error": str(e),

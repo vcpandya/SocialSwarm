@@ -513,6 +513,31 @@
     "agentCount": "agents",
     "platforms": "Platforms"
   },
+  "archetypes": {
+    "title": "Persona Archetypes",
+    "description": "Add research-backed behavior archetypes to your simulation",
+    "disruptive": "Disruptive",
+    "automated": "Automated / Bots",
+    "influential": "Influential",
+    "partisan": "Partisan",
+    "passive": "Passive",
+    "corrective": "Corrective",
+    "constructive": "Constructive",
+    "addToSim": "Add to Simulation",
+    "count": "Count",
+    "injected": "archetypes injected"
+  },
+  "scraper": {
+    "title": "Source Scraper",
+    "description": "Scrape web sources to enrich persona generation with real-world context",
+    "urlPlaceholder": "Enter URL to scrape...",
+    "addUrl": "Add URL",
+    "scrapeButton": "Scrape Sources",
+    "scraping": "Scraping...",
+    "scraped": "sources scraped",
+    "topicsFound": "Topics Found",
+    "entitiesFound": "Entities Found"
+  },
   "meta": {
     "description": "MiroFish - Social Media Opinion Simulation System",
     "title": "MiroFish - Predict Everything"

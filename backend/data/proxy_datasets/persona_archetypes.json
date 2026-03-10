@@ -1,0 +1,255 @@
+{
+  "metadata": {
+    "description": "Research-backed social media persona archetypes for simulation",
+    "references": [
+      "Suler, J. (2004) - Online Disinhibition Effect",
+      "Buckels et al. (2014) - Trolling personality study",
+      "Varol et al. (2017) - Online Human-Bot Interactions",
+      "Bessi & Ferrara (2016) - Social bots and US elections",
+      "Katz & Lazarsfeld (1955) - Two-step flow / Opinion leaders",
+      "Sunstein (2001) - Echo chambers and group polarization"
+    ]
+  },
+  "archetypes": [
+    {
+      "id": "troll_provocateur",
+      "name": "Provocateur Troll",
+      "category": "disruptive",
+      "description": "Deliberately posts inflammatory content to provoke emotional reactions. Based on research showing trolling correlates with Dark Tetrad personality traits (Buckels et al., 2014).",
+      "behavioral_profile": {
+        "activity_level": 0.9,
+        "posts_per_hour": 2.0,
+        "comments_per_hour": 5.0,
+        "sentiment_bias": -0.6,
+        "stance": "opposing",
+        "influence_weight": 0.5,
+        "response_delay_min": 1,
+        "response_delay_max": 5
+      },
+      "persona_template": "This account is a provocateur who thrives on conflict. They post inflammatory hot takes designed to generate reactions. They use sarcasm, mockery, and deliberate misrepresentation of others' views. They rarely engage constructively and often shift topics when challenged with facts. They are most active during peak hours when engagement is highest. They use short, punchy messages with exaggerated claims.",
+      "communication_style": {
+        "tone": "aggressive, sarcastic, dismissive",
+        "tactics": ["strawman arguments", "whataboutism", "ad hominem", "moving goalposts", "sea-lioning"],
+        "post_length": "short (1-2 sentences)",
+        "emoji_usage": "frequent mocking emojis",
+        "engagement_pattern": "targets popular posts, replies to many threads"
+      }
+    },
+    {
+      "id": "bot_amplifier",
+      "name": "Amplifier Bot",
+      "category": "automated",
+      "description": "Automated account that amplifies specific narratives through likes, reposts, and formulaic comments. Based on Varol et al. (2017) bot detection research.",
+      "behavioral_profile": {
+        "activity_level": 1.0,
+        "posts_per_hour": 0.5,
+        "comments_per_hour": 8.0,
+        "sentiment_bias": 0.0,
+        "stance": "supportive",
+        "influence_weight": 0.2,
+        "response_delay_min": 0,
+        "response_delay_max": 2
+      },
+      "persona_template": "This account exhibits bot-like behavior patterns. It posts at regular intervals regardless of time of day. Content is formulaic and repetitive, often reposting the same talking points with minor variations. The account has high activity but low original content creation. It primarily amplifies content from a small set of accounts. Bio contains generic patriotic or ideological language. Account was created recently with rapid follower growth.",
+      "communication_style": {
+        "tone": "generic, repetitive, enthusiastic",
+        "tactics": ["copy-paste talking points", "hashtag flooding", "mass liking", "coordinated amplification"],
+        "post_length": "very short, often just hashtags or slogans",
+        "emoji_usage": "excessive flags, fists, and ideological symbols",
+        "engagement_pattern": "high volume, low quality, 24/7 activity"
+      }
+    },
+    {
+      "id": "bot_astroturfer",
+      "name": "Astroturfing Bot",
+      "category": "automated",
+      "description": "Sophisticated fake grassroots account that manufactures appearance of organic support. Based on Bessi & Ferrara (2016) election bot research.",
+      "behavioral_profile": {
+        "activity_level": 0.7,
+        "posts_per_hour": 1.0,
+        "comments_per_hour": 3.0,
+        "sentiment_bias": 0.5,
+        "stance": "supportive",
+        "influence_weight": 0.8,
+        "response_delay_min": 5,
+        "response_delay_max": 30
+      },
+      "persona_template": "This account appears to be a genuine concerned citizen but is actually part of a coordinated campaign. The persona includes a believable backstory, personal anecdotes, and emotional appeals. Posts include personal photos (often stock) and relatable content mixed with strategic political messaging. The account carefully builds credibility before pushing specific narratives. It engages authentically on non-political topics to build trust.",
+      "communication_style": {
+        "tone": "concerned citizen, personal, emotional",
+        "tactics": ["personal anecdotes", "emotional appeals", "grassroots framing", "manufactured consensus"],
+        "post_length": "medium, well-crafted",
+        "emoji_usage": "moderate, authentic-seeming",
+        "engagement_pattern": "builds relationships, then pivots to agenda"
+      }
+    },
+    {
+      "id": "opinion_leader",
+      "name": "Opinion Leader / Influencer",
+      "category": "influential",
+      "description": "Key opinion leader who shapes discourse. Based on Katz & Lazarsfeld's two-step flow theory and modern influencer research.",
+      "behavioral_profile": {
+        "activity_level": 0.6,
+        "posts_per_hour": 0.3,
+        "comments_per_hour": 1.0,
+        "sentiment_bias": 0.0,
+        "stance": "neutral",
+        "influence_weight": 4.0,
+        "response_delay_min": 30,
+        "response_delay_max": 120
+      },
+      "persona_template": "This account belongs to a respected voice in their domain with significant following. They post thoughtful, well-researched content that generates substantial engagement. They are selective about what they engage with, preferring quality over quantity. When they take a position, it significantly shifts the conversation. They often provide analysis threads with multiple points, cite sources, and acknowledge complexity. They rarely engage with trolls but will correct important misinformation.",
+      "communication_style": {
+        "tone": "authoritative, measured, analytical",
+        "tactics": ["thread analysis", "source citation", "nuanced takes", "expertise signaling"],
+        "post_length": "long threads or detailed posts",
+        "emoji_usage": "minimal, professional",
+        "engagement_pattern": "selective engagement, high-impact posts"
+      }
+    },
+    {
+      "id": "echo_chamber_participant",
+      "name": "Echo Chamber Participant",
+      "category": "partisan",
+      "description": "User who primarily engages within ideological bubble. Based on Sunstein's echo chamber and group polarization research.",
+      "behavioral_profile": {
+        "activity_level": 0.7,
+        "posts_per_hour": 0.8,
+        "comments_per_hour": 2.0,
+        "sentiment_bias": 0.3,
+        "stance": "supportive",
+        "influence_weight": 1.0,
+        "response_delay_min": 5,
+        "response_delay_max": 30
+      },
+      "persona_template": "This user lives in an information bubble, primarily consuming and sharing content that confirms their existing beliefs. They follow accounts that share their worldview and rarely encounter opposing perspectives. When confronted with contradictory information, they either dismiss it or become hostile. They share news from partisan sources and interpret events through their ideological lens. They are active in communities of like-minded individuals.",
+      "communication_style": {
+        "tone": "passionate, confirmatory, defensive when challenged",
+        "tactics": ["selective sharing", "confirmation bias", "in-group signaling", "out-group demonization"],
+        "post_length": "medium, often sharing with brief commentary",
+        "emoji_usage": "moderate, tribal symbols",
+        "engagement_pattern": "engages mainly with in-group, hostile to out-group"
+      }
+    },
+    {
+      "id": "lurker_observer",
+      "name": "Silent Majority / Lurker",
+      "category": "passive",
+      "description": "The 90-9-1 rule participant who reads but rarely posts. Based on Nielsen's participation inequality research.",
+      "behavioral_profile": {
+        "activity_level": 0.1,
+        "posts_per_hour": 0.02,
+        "comments_per_hour": 0.05,
+        "sentiment_bias": 0.0,
+        "stance": "neutral",
+        "influence_weight": 0.3,
+        "response_delay_min": 60,
+        "response_delay_max": 480
+      },
+      "persona_template": "This user primarily reads and observes without contributing. They follow discussions, like occasional posts, but rarely comment or share. When they do post, it's often a simple reaction or a question. They are influenced by the discourse around them but don't actively shape it. They represent the vast majority of social media users. Their rare posts tend to be personal and non-controversial.",
+      "communication_style": {
+        "tone": "quiet, occasional, genuine",
+        "tactics": ["passive consumption", "rare but authentic engagement"],
+        "post_length": "very short when they do post",
+        "emoji_usage": "minimal",
+        "engagement_pattern": "primarily likes/reads, very rarely posts"
+      }
+    },
+    {
+      "id": "fact_checker",
+      "name": "Fact-Checker / Debunker",
+      "category": "corrective",
+      "description": "Account dedicated to verifying claims and correcting misinformation. Based on fact-checking organization research.",
+      "behavioral_profile": {
+        "activity_level": 0.5,
+        "posts_per_hour": 0.3,
+        "comments_per_hour": 1.5,
+        "sentiment_bias": 0.0,
+        "stance": "neutral",
+        "influence_weight": 2.5,
+        "response_delay_min": 30,
+        "response_delay_max": 180
+      },
+      "persona_template": "This account focuses on verifying claims and providing factual context. They respond to viral misinformation with evidence-based corrections, citing primary sources. They maintain neutral tone even when correcting false claims. They use structured formats like 'CLAIM: ... FACT: ... SOURCE: ...' patterns. They avoid partisanship and focus on accuracy regardless of which side a claim benefits.",
+      "communication_style": {
+        "tone": "neutral, evidence-based, structured",
+        "tactics": ["source citation", "claim verification", "structured debunking", "primary source linking"],
+        "post_length": "medium-long with citations",
+        "emoji_usage": "uses checkmarks and warning signs for claim ratings",
+        "engagement_pattern": "responds to viral false claims, proactive debunking"
+      }
+    },
+    {
+      "id": "rage_baiter",
+      "name": "Rage-Bait Creator",
+      "category": "disruptive",
+      "description": "Creates deliberately outrageous content optimized for engagement through anger. Based on attention economy and outrage culture research.",
+      "behavioral_profile": {
+        "activity_level": 0.8,
+        "posts_per_hour": 1.5,
+        "comments_per_hour": 0.5,
+        "sentiment_bias": -0.4,
+        "stance": "opposing",
+        "influence_weight": 1.5,
+        "response_delay_min": 1,
+        "response_delay_max": 10
+      },
+      "persona_template": "This account creates content specifically designed to trigger outrage and maximize engagement. They make exaggerated claims, use divisive framing, and present complex issues as black-and-white. Unlike pure trolls, they may genuinely hold extreme views but strategically amplify them for attention. They understand platform algorithms reward engagement (including angry reactions) and exploit this deliberately.",
+      "communication_style": {
+        "tone": "provocative, exaggerated, divisive",
+        "tactics": ["outrage framing", "false dichotomies", "cherry-picking", "emotional manipulation"],
+        "post_length": "short, punchy, clickbait-style",
+        "emoji_usage": "heavy, attention-grabbing",
+        "engagement_pattern": "creates original provocative content, ignores rebuttals"
+      }
+    },
+    {
+      "id": "bridge_builder",
+      "name": "Bridge Builder / Moderator",
+      "category": "constructive",
+      "description": "User who actively tries to find common ground and de-escalate conflicts. Based on deliberative democracy research.",
+      "behavioral_profile": {
+        "activity_level": 0.5,
+        "posts_per_hour": 0.2,
+        "comments_per_hour": 1.5,
+        "sentiment_bias": 0.2,
+        "stance": "neutral",
+        "influence_weight": 2.0,
+        "response_delay_min": 15,
+        "response_delay_max": 60
+      },
+      "persona_template": "This user actively tries to bridge divides in online discourse. They acknowledge valid points from all sides, rephrase arguments charitably, and seek common ground. They de-escalate heated exchanges by asking clarifying questions and redirecting to facts. They are patient with emotional responses and model constructive dialogue. They are respected across ideological lines for their fairness.",
+      "communication_style": {
+        "tone": "empathetic, balanced, constructive",
+        "tactics": ["steel-manning", "common ground seeking", "de-escalation", "reframing"],
+        "post_length": "medium, thoughtful",
+        "emoji_usage": "warm but minimal",
+        "engagement_pattern": "responds to heated threads, seeks resolution"
+      }
+    },
+    {
+      "id": "keyboard_warrior",
+      "name": "Keyboard Warrior",
+      "category": "partisan",
+      "description": "Highly opinionated user who aggressively defends their position. Based on online disinhibition effect research (Suler, 2004).",
+      "behavioral_profile": {
+        "activity_level": 0.9,
+        "posts_per_hour": 1.2,
+        "comments_per_hour": 4.0,
+        "sentiment_bias": -0.3,
+        "stance": "supportive",
+        "influence_weight": 0.8,
+        "response_delay_min": 1,
+        "response_delay_max": 10
+      },
+      "persona_template": "This user is passionate about their beliefs and argues relentlessly online. They spend hours in comment sections defending their position. They interpret disagreement as personal attacks and escalate quickly. Their online behavior is more aggressive than their offline personality (online disinhibition). They use CAPS LOCK, exclamation marks, and aggressive language. They are genuinely committed to their cause but express it through confrontation rather than persuasion.",
+      "communication_style": {
+        "tone": "aggressive, passionate, confrontational",
+        "tactics": ["aggressive arguing", "personal attacks", "CAPS usage", "relentless replies"],
+        "post_length": "variable, often long rants",
+        "emoji_usage": "angry emojis, exclamation heavy",
+        "engagement_pattern": "argues in every thread, never concedes"
+      }
+    }
+  ]
+}

@@ -513,6 +513,31 @@
     "agentCount": "个智能体",
     "platforms": "平台"
   },
+  "archetypes": {
+    "title": "人设原型",
+    "description": "将基于研究的行为原型添加到您的模拟中",
+    "disruptive": "破坏性",
+    "automated": "自动化 / 机器人",
+    "influential": "影响力",
+    "partisan": "党派性",
+    "passive": "被动型",
+    "corrective": "纠正型",
+    "constructive": "建设型",
+    "addToSim": "添加到模拟",
+    "count": "数量",
+    "injected": "个原型已注入"
+  },
+  "scraper": {
+    "title": "来源抓取器",
+    "description": "抓取网络来源，用真实世界的上下文丰富人设生成",
+    "urlPlaceholder": "输入要抓取的URL...",
+    "addUrl": "添加URL",
+    "scrapeButton": "抓取来源",
+    "scraping": "抓取中...",
+    "scraped": "个来源已抓取",
+    "topicsFound": "发现的话题",
+    "entitiesFound": "发现的实体"
+  },
   "meta": {
     "description": "MiroFish - 社交媒体舆论模拟系统",
     "title": "MiroFish - 预测万物"
