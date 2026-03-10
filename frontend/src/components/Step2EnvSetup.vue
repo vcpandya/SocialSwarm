@@ -39,6 +39,37 @@
             </div>
           </div>
 
+          <!-- Scenario Template Selector -->
+          <div class="config-item" style="margin-top: 12px;">
+            <span class="config-item-label">Scenario Template (Optional)</span>
+            <p class="description" style="margin: 4px 0 8px 0; font-size: 12px;">
+              Load a pre-configured scenario template to auto-fill simulation settings.
+            </p>
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <select
+                v-model="selectedTemplate"
+                class="scenario-template-select"
+                @change="onTemplateSelected"
+              >
+                <option :value="null">-- Select a template --</option>
+                <option
+                  v-for="tpl in scenarioTemplates"
+                  :key="tpl.id"
+                  :value="tpl.id"
+                >{{ tpl.name }}</option>
+              </select>
+              <button
+                class="action-btn primary"
+                style="padding: 8px 16px; font-size: 12px; white-space: nowrap;"
+                :disabled="!selectedTemplate || applyingTemplate"
+                @click="applyScenarioTemplate"
+              >{{ applyingTemplate ? 'Applying...' : 'Apply Template' }}</button>
+            </div>
+            <div v-if="selectedTemplateDescription" class="template-description-box">
+              {{ selectedTemplateDescription }}
+            </div>
+          </div>
+
           <div class="config-item" style="margin-top: 12px;">
             <span class="config-item-label">{{ $t('step2.timezone') }}</span>
             <select v-model="selectedTimezone" class="timezone-select">
@@ -55,8 +86,9 @@
             <label class="switch-control">
               <input type="checkbox" v-model="enableWhatsApp">
               <span class="switch-track"></span>
-              <span class="switch-label">{{ $t('step2.whatsappEnabled') }}</span>
+              <span class="switch-label">{{ $t('step2.whatsappEnabled') }} <span style="color: #e6a23c; font-size: 12px;">(Experimental)</span></span>
             </label>
+            <p style="margin: 4px 0 0 0; font-size: 11px; color: #909399;">Requires Twitter or Reddit as primary platform</p>
           </div>
 
           <!-- WhatsApp Config (shown when enabled) -->
@@ -95,8 +127,9 @@
             <label class="switch-control">
               <input type="checkbox" v-model="enableYouTube">
               <span class="switch-track"></span>
-              <span class="switch-label">{{ $t('step2.youtubeEnabled') }}</span>
+              <span class="switch-label">{{ $t('step2.youtubeEnabled') }} <span style="color: #e6a23c; font-size: 12px;">(Experimental)</span></span>
             </label>
+            <p style="margin: 4px 0 0 0; font-size: 11px; color: #909399;">Requires Twitter or Reddit as primary platform</p>
           </div>
 
           <!-- YouTube Config (shown when enabled) -->
@@ -133,8 +166,9 @@
             <label class="switch-control">
               <input type="checkbox" v-model="enableInstagram">
               <span class="switch-track"></span>
-              <span class="switch-label">{{ $t('step2.instagramEnabled') }}</span>
+              <span class="switch-label">{{ $t('step2.instagramEnabled') }} <span style="color: #e6a23c; font-size: 12px;">(Experimental)</span></span>
             </label>
+            <p style="margin: 4px 0 0 0; font-size: 11px; color: #909399;">Requires Twitter or Reddit as primary platform</p>
           </div>
 
           <!-- Instagram Config (shown when enabled) -->
@@ -264,6 +298,153 @@
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Agent Archetypes Section -->
+          <div class="archetypes-section" style="margin-top: 16px;">
+            <div class="section-heading">
+              <span class="config-item-label">Agent Archetypes (Optional)</span>
+              <p class="description" style="margin: 4px 0 8px 0; font-size: 12px;">
+                Add research-backed persona archetypes to your simulation
+              </p>
+            </div>
+
+            <div v-if="archetypesLoading" class="description" style="color: #909399;">
+              Loading archetypes...
+            </div>
+
+            <div v-else-if="archetypes.length > 0" class="archetypes-grid">
+              <label
+                v-for="arch in archetypes"
+                :key="arch.id"
+                class="archetype-card"
+                :class="{ selected: selectedArchetypes.includes(arch.id) }"
+              >
+                <input
+                  type="checkbox"
+                  :value="arch.id"
+                  v-model="selectedArchetypes"
+                  style="display: none;"
+                />
+                <span class="archetype-name">{{ arch.name }}</span>
+                <span class="archetype-desc">{{ arch.description }}</span>
+              </label>
+            </div>
+
+            <div v-if="archetypes.length > 0" class="archetype-controls" style="margin-top: 10px;">
+              <div class="config-item" style="display: flex; align-items: center; gap: 10px;">
+                <span class="config-item-label" style="white-space: nowrap;">Count per archetype</span>
+                <input
+                  type="number"
+                  v-model.number="archetypeCount"
+                  min="1"
+                  max="5"
+                  class="rounds-input"
+                  style="width: 60px;"
+                />
+              </div>
+              <button
+                class="action-btn"
+                :disabled="selectedArchetypes.length === 0 || !simulationId || archetypeInjecting"
+                @click="injectArchetypes"
+                style="margin-top: 8px;"
+              >
+                {{ archetypeInjecting ? 'Injecting...' : 'Inject Archetypes' }}
+              </button>
+              <p v-if="archetypeResult" class="description" style="margin-top: 6px; color: #67c23a; font-size: 12px;">
+                {{ archetypeResult }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Real-Time News Feed Injection Section -->
+          <div class="news-feed-section" style="margin-top: 16px;">
+            <div class="section-heading">
+              <label class="switch-control">
+                <input type="checkbox" v-model="enableNews">
+                <span class="switch-track"></span>
+                <span class="switch-label">Real-Time News Feed (Optional)</span>
+              </label>
+              <p class="description" style="margin: 4px 0 8px 0; font-size: 12px;">
+                Inject real-world news articles into the simulation environment
+              </p>
+            </div>
+
+            <div v-if="enableNews" class="news-feed-controls">
+              <div class="config-item" style="margin-bottom: 10px;">
+                <span class="config-item-label" style="font-size: 12px;">Regions</span>
+                <div class="news-checkbox-row">
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="india" v-model="newsRegions" />
+                    <span>India</span>
+                  </label>
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="us" v-model="newsRegions" />
+                    <span>US</span>
+                  </label>
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="global" v-model="newsRegions" />
+                    <span>Global</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="config-item" style="margin-bottom: 10px;">
+                <span class="config-item-label" style="font-size: 12px;">Categories</span>
+                <div class="news-checkbox-row">
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="general" v-model="newsCategories" />
+                    <span>General</span>
+                  </label>
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="tech" v-model="newsCategories" />
+                    <span>Tech</span>
+                  </label>
+                  <label class="news-checkbox-label">
+                    <input type="checkbox" value="business" v-model="newsCategories" />
+                    <span>Business</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="config-item" style="margin-bottom: 10px;">
+                <span class="config-item-label" style="font-size: 12px;">Keywords (comma-separated)</span>
+                <input
+                  type="text"
+                  v-model="newsKeywords"
+                  placeholder="e.g. AI, climate, elections"
+                  class="news-text-input"
+                />
+              </div>
+
+              <div class="config-item" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span class="config-item-label" style="white-space: nowrap; font-size: 12px;">Max articles</span>
+                <input
+                  type="number"
+                  v-model.number="newsMaxArticles"
+                  min="1"
+                  max="50"
+                  class="rounds-input"
+                  style="width: 70px;"
+                />
+              </div>
+
+              <button
+                class="action-btn"
+                :disabled="!simulationId || newsInjecting || newsRegions.length === 0 || newsCategories.length === 0"
+                @click="injectNews"
+                style="margin-top: 4px;"
+              >
+                {{ newsInjecting ? 'Fetching & Injecting...' : 'Fetch & Inject News' }}
+              </button>
+
+              <p v-if="newsResult" class="description" style="margin-top: 6px; color: #67c23a; font-size: 12px;">
+                {{ newsResult }}
+              </p>
+              <p v-if="newsError" class="description" style="margin-top: 6px; color: #f56c6c; font-size: 12px;">
+                {{ newsError }}
+              </p>
             </div>
           </div>
         </div>
@@ -912,6 +1093,11 @@ let lastLoggedMessage = ''
 let lastLoggedProfileCount = 0
 let lastLoggedConfigStage = ''
 
+// Scenario template selection
+const scenarioTemplates = ref([])
+const selectedTemplate = ref(null)
+const applyingTemplate = ref(false)
+
 // Timezone selection
 const selectedTimezone = ref('asia_kolkata')
 const enableWhatsApp = ref(false)
@@ -926,6 +1112,24 @@ const allowCodeSwitching = ref(true)
 // Simulation rounds configuration
 const useCustomRounds = ref(false) // Default to auto-configured rounds
 const customMaxRounds = ref(40)   // Default recommended 40 rounds
+
+// Agent archetypes
+const archetypes = ref([])
+const selectedArchetypes = ref([])
+const archetypeCount = ref(2)
+const archetypesLoading = ref(false)
+const archetypeInjecting = ref(false)
+const archetypeResult = ref('')
+
+// News feed injection
+const enableNews = ref(false)
+const newsRegions = ref(['india'])
+const newsCategories = ref(['general'])
+const newsKeywords = ref('')
+const newsMaxArticles = ref(10)
+const newsInjecting = ref(false)
+const newsResult = ref(null)
+const newsError = ref(null)
 
 // Watch stage to update phase
 watch(currentStage, (newStage) => {
@@ -987,6 +1191,61 @@ const totalTopicsCount = computed(() => {
   }, 0)
 })
 
+// Computed: description of currently selected template
+const selectedTemplateDescription = computed(() => {
+  if (!selectedTemplate.value) return ''
+  const tpl = scenarioTemplates.value.find(t => t.id === selectedTemplate.value)
+  return tpl?.description || ''
+})
+
+// Scenario template methods
+const fetchScenarioTemplates = async () => {
+  try {
+    const res = await fetch('/api/simulation/api/scenarios')
+    if (res.ok) {
+      const data = await res.json()
+      scenarioTemplates.value = data.scenarios || []
+    }
+  } catch (err) {
+    console.warn('Failed to fetch scenario templates:', err)
+  }
+}
+
+const onTemplateSelected = () => {
+  // No-op: description shown reactively via computed property
+}
+
+const applyScenarioTemplate = async () => {
+  if (!selectedTemplate.value || !props.simulationId) return
+  applyingTemplate.value = true
+  try {
+    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/apply-scenario`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario_id: selectedTemplate.value })
+    })
+    if (res.ok) {
+      const data = await res.json()
+      addLog(`Scenario template applied: ${selectedTemplate.value}`)
+      // If the response contains config fields, apply them to local state
+      if (data.config) {
+        if (data.config.timezone) selectedTimezone.value = data.config.timezone
+        if (data.config.primary_language) primaryLanguage.value = data.config.primary_language
+        if (data.config.enable_whatsapp !== undefined) enableWhatsApp.value = data.config.enable_whatsapp
+        if (data.config.enable_youtube !== undefined) enableYouTube.value = data.config.enable_youtube
+        if (data.config.enable_instagram !== undefined) enableInstagram.value = data.config.enable_instagram
+        if (data.config.allow_code_switching !== undefined) allowCodeSwitching.value = data.config.allow_code_switching
+      }
+    } else {
+      addLog(`Failed to apply scenario template (HTTP ${res.status})`)
+    }
+  } catch (err) {
+    addLog(`Error applying scenario template: ${err.message}`)
+  } finally {
+    applyingTemplate.value = false
+  }
+}
+
 // Methods
 const addLog = (msg) => {
   emit('add-log', msg)
@@ -1024,6 +1283,30 @@ const handleWhatsAppImport = (event) => {
   }
 }
 
+const uploadWhatsAppFile = async () => {
+  if (!whatsappImportFile.value || !props.simulationId) return
+  const formData = new FormData()
+  formData.append('file', whatsappImportFile.value)
+  addLog(`Uploading WhatsApp chat file: ${whatsappImportFile.value.name}...`)
+  try {
+    const response = await fetch(`/api/simulation/${props.simulationId}/upload-whatsapp`, {
+      method: 'POST',
+      body: formData,
+    })
+    const result = await response.json()
+    if (result.success) {
+      addLog(`WhatsApp chat parsed successfully: ${result.messages_count} messages, ${result.participants.length} participants`)
+      if (result.date_range?.start && result.date_range?.end) {
+        addLog(`  └─ Date range: ${result.date_range.start} to ${result.date_range.end}`)
+      }
+    } else {
+      addLog(`WhatsApp upload failed: ${result.error}`)
+    }
+  } catch (err) {
+    addLog(`WhatsApp upload error: ${err.message}`)
+  }
+}
+
 const selectProfile = (profile) => {
   selectedProfile.value = profile
 }
@@ -1041,7 +1324,12 @@ const startPrepareSimulation = async () => {
   addLog(t('step2.simInstanceCreated', { id: props.simulationId }))
   addLog(t('step2.preparingEnv'))
   emit('update-status', 'processing')
-  
+
+  // Upload WhatsApp file if one was selected
+  if (enableWhatsApp.value && whatsappImportFile.value) {
+    await uploadWhatsAppFile()
+  }
+
   try {
     const res = await prepareSimulation({
       simulation_id: props.simulationId,
@@ -1336,12 +1624,98 @@ watch(() => props.systemLogs?.length, () => {
   })
 })
 
+// Fetch available archetypes from API
+const fetchArchetypes = async () => {
+  archetypesLoading.value = true
+  try {
+    const res = await fetch('/api/simulation/api/archetypes')
+    if (res.ok) {
+      const data = await res.json()
+      archetypes.value = data.archetypes || []
+    } else {
+      console.warn('Failed to fetch archetypes:', res.status)
+    }
+  } catch (err) {
+    console.warn('Could not load archetypes:', err)
+  } finally {
+    archetypesLoading.value = false
+  }
+}
+
+// Inject selected archetypes into the simulation
+const injectArchetypes = async () => {
+  if (!props.simulationId || selectedArchetypes.value.length === 0) return
+  archetypeInjecting.value = true
+  archetypeResult.value = ''
+  try {
+    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/inject-archetypes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        archetypes: selectedArchetypes.value,
+        count_per_archetype: archetypeCount.value
+      })
+    })
+    if (res.ok) {
+      const data = await res.json()
+      archetypeResult.value = `Successfully injected ${selectedArchetypes.value.length} archetype(s) x ${archetypeCount.value} each.`
+      addLog(`Injected archetypes: ${selectedArchetypes.value.join(', ')}`)
+    } else {
+      archetypeResult.value = 'Failed to inject archetypes.'
+    }
+  } catch (err) {
+    archetypeResult.value = 'Error injecting archetypes.'
+    console.error('Inject archetypes error:', err)
+  } finally {
+    archetypeInjecting.value = false
+  }
+}
+
+// Inject news articles into the simulation
+const injectNews = async () => {
+  if (!props.simulationId) return
+  newsInjecting.value = true
+  newsResult.value = null
+  newsError.value = null
+  try {
+    const keywords = newsKeywords.value
+      ? newsKeywords.value.split(',').map(k => k.trim()).filter(k => k)
+      : []
+    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/inject-news`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        regions: newsRegions.value,
+        categories: newsCategories.value,
+        keywords,
+        max_articles: newsMaxArticles.value
+      })
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const count = data.articles_injected ?? data.count ?? 0
+      newsResult.value = `Successfully injected ${count} news article(s) into the simulation.`
+      addLog(`Injected ${count} news articles (regions: ${newsRegions.value.join(', ')}, categories: ${newsCategories.value.join(', ')})`)
+    } else {
+      newsError.value = `Failed to inject news (HTTP ${res.status}).`
+    }
+  } catch (err) {
+    newsError.value = 'Error injecting news articles.'
+    console.error('Inject news error:', err)
+  } finally {
+    newsInjecting.value = false
+  }
+}
+
 onMounted(() => {
   // Automatically start preparation flow
   if (props.simulationId) {
     addLog(t('step2.step2Init'))
     startPrepareSimulation()
   }
+  // Load archetypes and scenario templates
+  fetchArchetypes()
+  fetchScenarioTemplates()
 })
 
 onUnmounted(() => {
@@ -2894,5 +3268,135 @@ onUnmounted(() => {
 .modal-leave-to .profile-modal {
   transform: scale(0.95) translateY(10px);
   opacity: 0;
+}
+
+/* Agent Archetypes */
+.archetypes-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 14px;
+}
+
+.archetypes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.archetype-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archetype-card:hover {
+  border-color: rgba(100, 181, 246, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.archetype-card.selected {
+  border-color: #409eff;
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.archetype-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.archetype-desc {
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.4;
+}
+
+.archetype-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Scenario Template Selector */
+.scenario-template-select {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #E0E0E0;
+  background: #FFF;
+  font-size: 13px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.scenario-template-select:focus {
+  border-color: #FF5722;
+}
+
+.template-description-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #F0F7FF;
+  border-left: 3px solid #1565C0;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.5;
+}
+
+/* News Feed Injection */
+.news-feed-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 14px;
+}
+
+.news-feed-controls {
+  margin-top: 8px;
+}
+
+.news-checkbox-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.news-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #e0e0e0;
+  cursor: pointer;
+}
+
+.news-checkbox-label input[type="checkbox"] {
+  accent-color: #409eff;
+}
+
+.news-text-input {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.news-text-input::placeholder {
+  color: #606266;
+}
+
+.news-text-input:focus {
+  border-color: #409eff;
 }
 </style>

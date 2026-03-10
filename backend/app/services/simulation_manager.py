@@ -352,6 +352,18 @@ class SimulationManager:
                     total=total_entities
                 )
             
+            # Load scraped source context if available
+            scraped_context_path = os.path.join(sim_dir, "scraped_prompt_context.txt")
+            extra_context = ""
+            if os.path.exists(scraped_context_path):
+                try:
+                    with open(scraped_context_path, 'r', encoding='utf-8') as f:
+                        extra_context = f.read().strip()
+                    if extra_context:
+                        logger.info(f"Loaded scraped source context ({len(extra_context)} chars) for persona generation")
+                except Exception as e:
+                    logger.warning(f"Failed to read scraped context file: {e}")
+
             # Pass graph_id to enable Zep retrieval for richer context
             generator = OasisProfileGenerator(graph_id=state.graph_id)
             
@@ -383,7 +395,8 @@ class SimulationManager:
                 graph_id=state.graph_id,  # Pass graph_id for Zep retrieval
                 parallel_count=parallel_profile_count,  # Parallel generation count
                 realtime_output_path=realtime_output_path,  # Realtime save path
-                output_platform=realtime_platform  # Output format
+                output_platform=realtime_platform,  # Output format
+                extra_context=extra_context  # Scraped source context
             )
             
             state.profiles_count = len(profiles)

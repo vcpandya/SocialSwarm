@@ -22,6 +22,7 @@ from ..config import Config
 from ..utils.logger import get_logger
 from .zep_entity_reader import EntityNode, ZepEntityReader
 from .proxy_data_loader import ProxyDataLoader
+from .language_config import get_language_instruction, assign_language_to_agent
 
 logger = get_logger('mirofish.oasis_profile')
 
@@ -111,6 +112,9 @@ class OasisAgentProfile:
         cultural_snippet = self._build_cultural_context_snippet()
         if cultural_snippet:
             persona_text = persona_text + cultural_snippet
+        if self.language_preference:
+            lang_instruction = get_language_instruction(self.language_preference.lower(), "reddit")
+            persona_text += f" Language: {lang_instruction}"
 
         profile = {
             "user_id": self.user_id,
@@ -145,6 +149,9 @@ class OasisAgentProfile:
         cultural_snippet = self._build_cultural_context_snippet()
         if cultural_snippet:
             persona_text = persona_text + cultural_snippet
+        if self.language_preference:
+            lang_instruction = get_language_instruction(self.language_preference.lower(), "twitter")
+            persona_text += f" Language: {lang_instruction}"
 
         profile = {
             "user_id": self.user_id,
@@ -181,6 +188,9 @@ class OasisAgentProfile:
         cultural_snippet = self._build_cultural_context_snippet()
         if cultural_snippet:
             persona_text = persona_text + cultural_snippet
+        if self.language_preference:
+            lang_instruction = get_language_instruction(self.language_preference.lower(), "whatsapp")
+            persona_text += f" Language: {lang_instruction}"
 
         profile = {
             "user_id": self.user_id,
@@ -317,10 +327,11 @@ class OasisProfileGenerator:
                 logger.warning(f"Zep client initialization failed: {e}")
     
     def generate_profile_from_entity(
-        self, 
-        entity: EntityNode, 
+        self,
+        entity: EntityNode,
         user_id: int,
-        use_llm: bool = True
+        use_llm: bool = True,
+        extra_context: str = ""
     ) -> OasisAgentProfile:
         """
         Generate OASIS Agent Profile from a Zep entity.
@@ -349,7 +360,8 @@ class OasisProfileGenerator:
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
-                context=context
+                context=context,
+                extra_context=extra_context
             )
         else:
             # Use rules to generate basic persona
@@ -620,7 +632,8 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        extra_context: str = ""
     ) -> Dict[str, Any]:
         """
         Use LLM to generate highly detailed persona.
@@ -634,11 +647,13 @@ class OasisProfileGenerator:
         
         if is_individual:
             prompt = self._build_individual_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context,
+                extra_context=extra_context
             )
         else:
             prompt = self._build_group_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context,
+                extra_context=extra_context
             )
 
         # Try multiple times until success or max retry count reached
@@ -800,7 +815,8 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        extra_context: str = ""
     ) -> str:
         """Build detailed persona prompt for individual entities"""
 
@@ -862,7 +878,11 @@ Important:
 - Content must be consistent with entity information
 - age must be a valid integer, gender must be "male" or "female"
 - For regional/cultural fields: generate values appropriate to the entity's country. Leave country-specific fields as "" when they don't apply (e.g., caste_community="" for US entities, ethnicity="" for India entities)
-"""
+{f"""
+
+Additional context from source materials (use this to make the persona more grounded and realistic):
+{extra_context}
+""" if extra_context else ""}"""
 
     def _build_group_persona_prompt(
         self,
@@ -870,7 +890,8 @@ Important:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        extra_context: str = ""
     ) -> str:
         """Build detailed persona prompt for group/institutional entities"""
 
@@ -927,7 +948,11 @@ Important:
 - Use English for all fields (gender must be "other")
 - age must be integer 30, gender must be string "other"
 - Institutional account communication must align with its identity and positioning
-- For regional/cultural fields: generate values appropriate to the institution's country. Leave country-specific fields as "" when they don't apply"""
+- For regional/cultural fields: generate values appropriate to the institution's country. Leave country-specific fields as "" when they don't apply
+{f"""
+Additional context from source materials (use this to make the profile more grounded and realistic):
+{extra_context}
+""" if extra_context else ""}"""
     
     def _generate_profile_rule_based(
         self,
@@ -1014,7 +1039,8 @@ Important:
         graph_id: Optional[str] = None,
         parallel_count: int = 5,
         realtime_output_path: Optional[str] = None,
-        output_platform: str = "reddit"
+        output_platform: str = "reddit",
+        extra_context: str = ""
     ) -> List[OasisAgentProfile]:
         """
         Batch generate Agent Profiles from entities (supports parallel generation).
@@ -1082,7 +1108,8 @@ Important:
                 profile = self.generate_profile_from_entity(
                     entity=entity,
                     user_id=idx,
-                    use_llm=use_llm
+                    use_llm=use_llm,
+                    extra_context=extra_context
                 )
                 
                 # Output generated persona to console and log in realtime
@@ -1289,6 +1316,9 @@ Important:
                 cultural_snippet = profile._build_cultural_context_snippet()
                 if cultural_snippet:
                     user_char = user_char + cultural_snippet
+                if profile.language_preference:
+                    lang_instruction = get_language_instruction(profile.language_preference.lower(), "twitter")
+                    user_char += f" Language: {lang_instruction}"
                 # Handle newlines (replace with spaces in CSV)
                 user_char = user_char.replace('\n', ' ').replace('\r', ' ')
                 

@@ -8,6 +8,8 @@ Uses only standard library + existing dependencies (no new packages needed).
 import json
 import re
 import html
+import socket
+import ipaddress
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -78,11 +80,74 @@ class SourceScraper:
     USER_AGENT = "SocialSwarm/1.0 (Academic Research Tool)"
     TIMEOUT = 15
 
+    def _validate_url(self, url: str) -> bool:
+        """Validate that a URL does not point to a private/internal IP address (SSRF protection).
+
+        Returns True if the URL is safe to request, False otherwise.
+        """
+        try:
+            parsed = urlparse(url)
+
+            # Only allow http and https schemes
+            if parsed.scheme not in ('http', 'https'):
+                logger.warning(f"SSRF protection: blocked URL with disallowed scheme '{parsed.scheme}': {url}")
+                return False
+
+            hostname = parsed.hostname
+            if not hostname:
+                logger.warning(f"SSRF protection: blocked URL with no hostname: {url}")
+                return False
+
+            # Resolve hostname to IP addresses
+            try:
+                addr_infos = socket.getaddrinfo(hostname, None)
+            except socket.gaierror:
+                logger.warning(f"SSRF protection: failed to resolve hostname '{hostname}': {url}")
+                return False
+
+            for addr_info in addr_infos:
+                ip_str = addr_info[4][0]
+                ip = ipaddress.ip_address(ip_str)
+
+                # Check for private/reserved IPv4 ranges
+                if ip.is_private:
+                    # Covers 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8,
+                    # and IPv6 fc00::/7, ::1, fe80::/10, etc.
+                    logger.warning(f"SSRF protection: blocked private/internal IP {ip} for URL: {url}")
+                    return False
+
+                if ip.is_loopback:
+                    logger.warning(f"SSRF protection: blocked loopback IP {ip} for URL: {url}")
+                    return False
+
+                if ip.is_link_local:
+                    # Covers 169.254.0.0/16 and fe80::/10
+                    logger.warning(f"SSRF protection: blocked link-local IP {ip} for URL: {url}")
+                    return False
+
+                if ip.is_reserved:
+                    logger.warning(f"SSRF protection: blocked reserved IP {ip} for URL: {url}")
+                    return False
+
+                # Explicit check for cloud metadata endpoint
+                if ip_str == '169.254.169.254':
+                    logger.warning(f"SSRF protection: blocked cloud metadata endpoint {ip} for URL: {url}")
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"SSRF protection: error validating URL '{url}': {e}")
+            return False
+
     def scrape_urls(self, config: ScrapeConfig) -> List[ScrapedSource]:
         """Scrape multiple URLs and extract relevant content"""
         sources = []
         for url in config.urls:
             try:
+                if not self._validate_url(url):
+                    logger.warning(f"Skipping URL that failed SSRF validation: {url}")
+                    continue
                 source = self._scrape_single(url, config)
                 if source and source.content:
                     sources.append(source)
@@ -138,6 +203,10 @@ class SourceScraper:
 
     def _scrape_single(self, url: str, config: ScrapeConfig) -> Optional[ScrapedSource]:
         """Scrape a single URL"""
+        # Defense-in-depth: validate URL even if caller already checked
+        if not self._validate_url(url):
+            return None
+
         parsed = urlparse(url)
         domain = parsed.netloc.replace('www.', '')
 

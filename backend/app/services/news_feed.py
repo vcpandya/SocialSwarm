@@ -170,7 +170,7 @@ class NewsFeedService:
         with urlopen(req, timeout=self.TIMEOUT) as response:
             content = response.read()
 
-        root = ET.fromstring(content)
+        root = self._safe_parse_xml(content)
         articles = []
 
         # Handle both RSS 2.0 and Atom formats
@@ -220,6 +220,27 @@ class NewsFeedService:
                 ))
 
         return articles
+
+    def _safe_parse_xml(self, content: bytes) -> ET.Element:
+        """Safely parse XML content, rejecting documents with DOCTYPE/ENTITY declarations
+        to prevent XXE (XML External Entity) attacks.
+
+        While Python's stdlib ElementTree does not process external entities by default,
+        this explicit check provides defense-in-depth against potential entity expansion
+        attacks (e.g., billion laughs) and future parser changes.
+        """
+        try:
+            text = content.decode('utf-8', errors='replace')
+        except Exception:
+            text = content.decode('latin-1')
+
+        # Reject XML with DOCTYPE or ENTITY declarations (case-insensitive)
+        if re.search(r'<!DOCTYPE\b', text, re.IGNORECASE) or re.search(r'<!ENTITY\b', text, re.IGNORECASE):
+            raise ValueError(
+                "XML content contains DOCTYPE or ENTITY declarations, which are rejected for security reasons."
+            )
+
+        return ET.fromstring(content)
 
     def _get_text(self, element, tag, ns=None):
         """Get text content of a child element"""

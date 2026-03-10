@@ -73,14 +73,14 @@
       <div class="charts-row">
         <div class="chart-panel timeline-panel">
           <div class="chart-header">{{ $t('dashboard.sentimentTimeline') }}</div>
-          <div class="chart-body">
+          <div class="chart-body" role="img" aria-label="Sentiment timeline chart">
             <svg ref="timelineSvg" class="chart-svg"></svg>
           </div>
         </div>
 
         <div class="chart-panel topic-panel">
           <div class="chart-header">{{ $t('dashboard.topicSentiment') }}</div>
-          <div class="chart-body">
+          <div class="chart-body" role="img" aria-label="Topic frequency chart">
             <svg ref="topicSvg" class="chart-svg"></svg>
           </div>
         </div>
@@ -90,14 +90,14 @@
       <div class="charts-row">
         <div class="chart-panel emotion-panel">
           <div class="chart-header">{{ $t('dashboard.emotionDistribution') }}</div>
-          <div class="chart-body">
+          <div class="chart-body" role="img" aria-label="Emotion distribution radar chart">
             <svg ref="emotionSvg" class="chart-svg"></svg>
           </div>
         </div>
 
         <div class="chart-panel scatter-panel">
           <div class="chart-header">{{ $t('dashboard.agentSentiment') }}</div>
-          <div class="chart-body">
+          <div class="chart-body" role="img" aria-label="Agent activity scatter plot">
             <svg ref="scatterSvg" class="chart-svg"></svg>
           </div>
         </div>
@@ -109,7 +109,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as d3 from 'd3'
+import { select, scaleLinear, scaleBand, scaleSqrt, extent, max, area as d3area, line as d3line, curveMonotoneX, axisBottom, axisLeft } from 'd3'
 import { getSentimentAnalysis, getSentimentTimeline } from '../api/dashboard'
 
 const { t } = useI18n()
@@ -131,6 +131,7 @@ const scatterSvg = ref(null)
 
 // Resize observer
 let resizeObserver = null
+let resizeTimer = null
 
 // Color helpers
 const sentimentColor = (val) => {
@@ -164,7 +165,7 @@ const gaugeOffset = computed(() => {
 })
 
 // Sentiment color scale for D3
-const sentimentColorScale = d3.scaleLinear()
+const sentimentColorScale = scaleLinear()
   .domain([-1, 0, 1])
   .range(['#ff6b6b', '#a0a0a0', '#00c853'])
 
@@ -275,7 +276,7 @@ const renderAllCharts = () => {
 
 // 1. Sentiment Timeline (line chart with confidence band)
 const renderTimeline = () => {
-  const svg = d3.select(timelineSvg.value)
+  const svg = select(timelineSvg.value)
   svg.selectAll('*').remove()
 
   const data = sentimentData.value.timeline
@@ -292,11 +293,11 @@ const renderTimeline = () => {
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
-  const x = d3.scaleLinear()
-    .domain(d3.extent(data, d => d.round))
+  const x = scaleLinear()
+    .domain(extent(data, d => d.round))
     .range([0, innerW])
 
-  const y = d3.scaleLinear()
+  const y = scaleLinear()
     .domain([-1, 1])
     .range([innerH, 0])
 
@@ -317,15 +318,15 @@ const renderTimeline = () => {
     .attr('stroke', '#333').attr('stroke-width', 1)
 
   // Confidence band
-  const area = d3.area()
+  const areaGen = d3area()
     .x(d => x(d.round))
     .y0(d => y(Math.max(-1, d.mean - d.std)))
     .y1(d => y(Math.min(1, d.mean + d.std)))
-    .curve(d3.curveMonotoneX)
+    .curve(curveMonotoneX)
 
   g.append('path')
     .datum(data)
-    .attr('d', area)
+    .attr('d', areaGen)
     .attr('fill', '#6c5ce7')
     .attr('fill-opacity', 0.15)
 
@@ -342,14 +343,14 @@ const renderTimeline = () => {
   gradient.append('stop').attr('offset', '100%').attr('stop-color', '#ff6b6b')
 
   // Line
-  const line = d3.line()
+  const lineGen = d3line()
     .x(d => x(d.round))
     .y(d => y(d.mean))
-    .curve(d3.curveMonotoneX)
+    .curve(curveMonotoneX)
 
   g.append('path')
     .datum(data)
-    .attr('d', line)
+    .attr('d', lineGen)
     .attr('fill', 'none')
     .attr('stroke', 'url(#line-gradient)')
     .attr('stroke-width', 2.5)
@@ -368,7 +369,7 @@ const renderTimeline = () => {
   // X-axis
   g.append('g')
     .attr('transform', `translate(0,${innerH})`)
-    .call(d3.axisBottom(x).ticks(Math.min(data.length, 12)).tickFormat(d => `${t('dashboard.round')} ${d}`))
+    .call(axisBottom(x).ticks(Math.min(data.length, 12)).tickFormat(d => `${t('dashboard.round')} ${d}`))
     .attr('color', '#666')
     .selectAll('text')
     .attr('fill', '#888')
@@ -377,7 +378,7 @@ const renderTimeline = () => {
 
   // Y-axis
   g.append('g')
-    .call(d3.axisLeft(y).ticks(5))
+    .call(axisLeft(y).ticks(5))
     .attr('color', '#666')
     .selectAll('text')
     .attr('fill', '#888')
@@ -390,7 +391,7 @@ const renderTimeline = () => {
 
 // 2. Topic Sentiment (horizontal bar chart)
 const renderTopicBars = () => {
-  const svg = d3.select(topicSvg.value)
+  const svg = select(topicSvg.value)
   svg.selectAll('*').remove()
 
   const data = sentimentData.value.topics
@@ -409,13 +410,13 @@ const renderTopicBars = () => {
 
   const sorted = [...data].sort((a, b) => b.count - a.count).slice(0, 8)
 
-  const y = d3.scaleBand()
+  const y = scaleBand()
     .domain(sorted.map(d => d.name))
     .range([0, innerH])
     .padding(0.25)
 
-  const x = d3.scaleLinear()
-    .domain([0, d3.max(sorted, d => d.count)])
+  const x = scaleLinear()
+    .domain([0, max(sorted, d => d.count)])
     .range([0, innerW])
 
   // Bars
@@ -458,7 +459,7 @@ const renderTopicBars = () => {
 
 // 3. Emotion Distribution (radar / spider chart)
 const renderEmotionChart = () => {
-  const svg = d3.select(emotionSvg.value)
+  const svg = select(emotionSvg.value)
   svg.selectAll('*').remove()
 
   const emotions = sentimentData.value.emotions
@@ -494,7 +495,7 @@ const renderEmotionChart = () => {
 
   const g = svg.append('g').attr('transform', `translate(${centerX},${centerY})`)
 
-  const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius])
+  const rScale = scaleLinear().domain([0, 1]).range([0, radius])
 
   // Concentric grid circles
   const levels = [0.2, 0.4, 0.6, 0.8, 1.0]
@@ -568,7 +569,7 @@ const renderEmotionChart = () => {
 
 // 4. Agent Sentiment Scatter Plot
 const renderScatterPlot = () => {
-  const svg = d3.select(scatterSvg.value)
+  const svg = select(scatterSvg.value)
   svg.selectAll('*').remove()
 
   const agents = sentimentData.value.agents
@@ -585,16 +586,16 @@ const renderScatterPlot = () => {
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
-  const x = d3.scaleLinear()
-    .domain([0, d3.max(agents, d => d.posts) * 1.1])
+  const x = scaleLinear()
+    .domain([0, max(agents, d => d.posts) * 1.1])
     .range([0, innerW])
 
-  const y = d3.scaleLinear()
+  const y = scaleLinear()
     .domain([-1, 1])
     .range([innerH, 0])
 
-  const size = d3.scaleSqrt()
-    .domain([0, d3.max(agents, d => d.influence)])
+  const size = scaleSqrt()
+    .domain([0, max(agents, d => d.influence)])
     .range([3, 12])
 
   // Zero line
@@ -630,7 +631,7 @@ const renderScatterPlot = () => {
   // X-axis
   g.append('g')
     .attr('transform', `translate(0,${innerH})`)
-    .call(d3.axisBottom(x).ticks(6))
+    .call(axisBottom(x).ticks(6))
     .attr('color', '#666')
     .selectAll('text')
     .attr('fill', '#888')
@@ -648,7 +649,7 @@ const renderScatterPlot = () => {
 
   // Y-axis
   g.append('g')
-    .call(d3.axisLeft(y).ticks(5))
+    .call(axisLeft(y).ticks(5))
     .attr('color', '#666')
     .selectAll('text')
     .attr('fill', '#888')
@@ -673,11 +674,14 @@ const renderScatterPlot = () => {
 onMounted(() => {
   fetchData()
 
-  // Setup resize observer
+  // Setup resize observer with debounce
   resizeObserver = new ResizeObserver(() => {
-    if (sentimentData.value) {
-      renderAllCharts()
-    }
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(() => {
+      if (sentimentData.value) {
+        renderAllCharts()
+      }
+    }, 300)
   })
 
   const el = document.querySelector('.sentiment-dashboard')
@@ -685,7 +689,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (resizeTimer) clearTimeout(resizeTimer)
   if (resizeObserver) resizeObserver.disconnect()
+  // Clear SVG content to release DOM references
+  if (timelineSvg.value) select(timelineSvg.value).selectAll('*').remove()
+  if (topicSvg.value) select(topicSvg.value).selectAll('*').remove()
+  if (emotionSvg.value) select(emotionSvg.value).selectAll('*').remove()
+  if (scatterSvg.value) select(scatterSvg.value).selectAll('*').remove()
 })
 </script>
 

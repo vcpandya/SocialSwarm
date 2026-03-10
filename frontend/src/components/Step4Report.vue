@@ -385,6 +385,44 @@
       </div>
     </div>
 
+    <!-- What-If Comparison Section -->
+    <div class="whatif-section">
+      <div class="whatif-header">
+        <h2 class="whatif-title">What-If Comparison</h2>
+        <p class="whatif-desc">Clone this simulation with different parameters to compare outcomes.</p>
+      </div>
+      <div class="whatif-actions">
+        <button
+          class="whatif-btn clone-btn"
+          :disabled="cloning || !simulationId"
+          @click="cloneSimulation"
+        >
+          <span v-if="cloning" class="btn-spinner"></span>
+          {{ cloning ? 'Cloning...' : 'Clone Simulation' }}
+        </button>
+        <span v-if="clonedSimId" class="cloned-id">Cloned ID: {{ clonedSimId }}</span>
+        <button
+          v-if="clonedSimId"
+          class="whatif-btn compare-btn"
+          :disabled="comparing"
+          @click="compareSimulations"
+        >
+          <span v-if="comparing" class="btn-spinner"></span>
+          {{ comparing ? 'Comparing...' : 'Compare Results' }}
+        </button>
+      </div>
+      <div v-if="comparisonResult" class="comparison-grid">
+        <div class="comparison-col">
+          <h4 class="col-label">Original ({{ simulationId }})</h4>
+          <pre class="col-data">{{ JSON.stringify(comparisonResult.original, null, 2) }}</pre>
+        </div>
+        <div class="comparison-col">
+          <h4 class="col-label">Clone ({{ clonedSimId }})</h4>
+          <pre class="col-data">{{ JSON.stringify(comparisonResult.clone, null, 2) }}</pre>
+        </div>
+      </div>
+    </div>
+
     <!-- Bottom Console Logs -->
     <div class="console-logs">
       <div class="log-header">
@@ -406,6 +444,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getAgentLog, getConsoleLog } from '../api/report'
 import { renderMarkdown, sanitizeHtml } from '../utils/markdown'
+import axios from 'axios'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -442,6 +481,54 @@ const leftPanel = ref(null)
 const rightPanel = ref(null)
 const logContent = ref(null)
 const showRawResult = reactive({})
+
+// What-If Comparison state
+const clonedSimId = ref(null)
+const cloning = ref(false)
+const comparing = ref(false)
+const comparisonResult = ref(null)
+
+const cloneSimulation = async () => {
+  if (!props.simulationId || cloning.value) return
+  cloning.value = true
+  comparisonResult.value = null
+  try {
+    const response = await axios.post(`/api/simulation/${props.simulationId}/clone`)
+    const data = response.data?.data || response.data
+    clonedSimId.value = data.simulation_id
+  } catch (err) {
+    console.error('Clone failed:', err)
+  } finally {
+    cloning.value = false
+  }
+}
+
+const compareSimulations = async () => {
+  if (!props.simulationId || !clonedSimId.value || comparing.value) return
+  comparing.value = true
+  try {
+    const response = await axios.post('/api/simulation/compare', {
+      simulation_ids: [props.simulationId, clonedSimId.value]
+    })
+    const data = response.data?.data || response.data
+    // Structure comparison into two columns
+    if (data && typeof data === 'object') {
+      const keys = Object.keys(data)
+      const origKey = keys.find(k => k === props.simulationId) || keys[0]
+      const cloneKey = keys.find(k => k === clonedSimId.value) || keys[1]
+      comparisonResult.value = {
+        original: origKey ? data[origKey] : data,
+        clone: cloneKey ? data[cloneKey] : data
+      }
+    } else {
+      comparisonResult.value = { original: data, clone: data }
+    }
+  } catch (err) {
+    console.error('Comparison failed:', err)
+  } finally {
+    comparing.value = false
+  }
+}
 
 // Toggle functions
 const toggleRawResult = (timestamp, event) => {
@@ -5081,4 +5168,134 @@ watch(() => props.reportId, (newId) => {
 .log-msg.error { color: #EF5350; }
 .log-msg.warning { color: #FFA726; }
 .log-msg.success { color: #66BB6A; }
+
+/* What-If Comparison */
+.whatif-section {
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
+  padding: 20px 24px;
+  flex-shrink: 0;
+}
+
+.whatif-header {
+  margin-bottom: 16px;
+}
+
+.whatif-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1F2937;
+  margin: 0 0 4px 0;
+}
+
+.whatif-desc {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0;
+}
+
+.whatif-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.whatif-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #D1D5DB;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.whatif-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clone-btn {
+  background: #1F2937;
+  color: #FFFFFF;
+  border-color: #1F2937;
+}
+
+.clone-btn:hover:not(:disabled) {
+  background: #374151;
+  border-color: #374151;
+}
+
+.compare-btn {
+  background: #4F46E5;
+  color: #FFFFFF;
+  border-color: #4F46E5;
+}
+
+.compare-btn:hover:not(:disabled) {
+  background: #4338CA;
+  border-color: #4338CA;
+}
+
+.cloned-id {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6B7280;
+  background: #F3F4F6;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.comparison-col {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.col-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 10px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.col-data {
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #4B5563;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
 </style>

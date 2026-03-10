@@ -6,6 +6,7 @@ Step2: Zep entity reading and filtering, OASIS simulation preparation and execut
 import copy
 import json
 import os
+import re
 import shutil
 import sqlite3
 import traceback
@@ -52,6 +53,31 @@ def optimize_interview_prompt(prompt: str) -> str:
     return f"{INTERVIEW_PROMPT_PREFIX}{prompt}"
 
 
+_SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def validate_simulation_id(simulation_id: str):
+    """
+    Validate a path-parameter ID (simulation_id, graph_id, template_id, etc.)
+    to prevent path traversal attacks.
+
+    Returns:
+        (True, None) if valid
+        (False, response) if invalid, where response is a Flask JSON 400 error
+    """
+    if '..' in str(simulation_id) or '/' in str(simulation_id) or '\\' in str(simulation_id):
+        return False, (jsonify({
+            "success": False,
+            "error": "Invalid ID: path traversal characters are not allowed"
+        }), 400)
+    if not _SAFE_ID_RE.match(str(simulation_id)):
+        return False, (jsonify({
+            "success": False,
+            "error": "Invalid ID: only alphanumeric characters, hyphens, and underscores are allowed"
+        }), 400)
+    return True, None
+
+
 # ============== Entity Reading Endpoints ==============
 
 @simulation_bp.route('/entities/<graph_id>', methods=['GET'])
@@ -65,6 +91,9 @@ def get_graph_entities(graph_id: str):
         entity_types: Comma-separated list of entity types (optional, for further filtering)
         enrich: Whether to fetch related edge information (default true)
     """
+    valid, error = validate_simulation_id(graph_id)
+    if not valid:
+        return error
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
@@ -102,6 +131,9 @@ def get_graph_entities(graph_id: str):
 @simulation_bp.route('/entities/<graph_id>/<entity_uuid>', methods=['GET'])
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Get detailed information for a single entity"""
+    valid, error = validate_simulation_id(graph_id)
+    if not valid:
+        return error
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
@@ -135,6 +167,9 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 @simulation_bp.route('/entities/<graph_id>/by-type/<entity_type>', methods=['GET'])
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Get all entities of a specified type"""
+    valid, error = validate_simulation_id(graph_id)
+    if not valid:
+        return error
     try:
         if not Config.ZEP_API_KEY:
             return jsonify({
@@ -224,15 +259,32 @@ def create_simulation():
                 "error": "Project graph not yet built, please call /api/graph/build first"
             }), 400
         
+        # Parse platform enable flags
+        enable_twitter = data.get('enable_twitter', True)
+        enable_reddit = data.get('enable_reddit', True)
+        enable_whatsapp = data.get('enable_whatsapp', False)
+        enable_youtube = data.get('enable_youtube', False)
+        enable_instagram = data.get('enable_instagram', False)
+
+        # Guard rail: experimental platforms require at least one primary platform
+        has_experimental = enable_whatsapp or enable_youtube or enable_instagram
+        has_primary = enable_twitter or enable_reddit
+        if has_experimental and not has_primary:
+            return jsonify({
+                "success": False,
+                "error": "At least one primary platform (Twitter or Reddit) must be enabled. "
+                         "WhatsApp, YouTube, and Instagram are experimental and require a primary platform."
+            }), 400
+
         manager = SimulationManager()
         state = manager.create_simulation(
             project_id=project_id,
             graph_id=graph_id,
-            enable_twitter=data.get('enable_twitter', True),
-            enable_reddit=data.get('enable_reddit', True),
-            enable_whatsapp=data.get('enable_whatsapp', False),
-            enable_youtube=data.get('enable_youtube', False),
-            enable_instagram=data.get('enable_instagram', False),
+            enable_twitter=enable_twitter,
+            enable_reddit=enable_reddit,
+            enable_whatsapp=enable_whatsapp,
+            enable_youtube=enable_youtube,
+            enable_instagram=enable_instagram,
         )
         
         return jsonify({
@@ -765,6 +817,9 @@ def get_prepare_status():
 @simulation_bp.route('/<simulation_id>', methods=['GET'])
 def get_simulation(simulation_id: str):
     """Get simulation status"""
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
@@ -1005,6 +1060,9 @@ def get_simulation_profiles(simulation_id: str):
     Query parameters:
         platform: Platform type (reddit/twitter, default reddit)
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         platform = request.args.get('platform', 'reddit')
         
@@ -1063,13 +1121,16 @@ def get_simulation_profiles_realtime(simulation_id: str):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     import json
     import csv
     from datetime import datetime
-    
+
     try:
         platform = request.args.get('platform', 'reddit')
-        
+
         # Get simulation directory
         sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
 
@@ -1169,9 +1230,12 @@ def get_simulation_config_realtime(simulation_id: str):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     import json
     from datetime import datetime
-    
+
     try:
         # Get simulation directory
         sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
@@ -1277,6 +1341,9 @@ def get_simulation_config(simulation_id: str):
         - platform_configs: Platform configurations
         - generation_reasoning: LLM's config reasoning explanation
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         manager = SimulationManager()
         config = manager.get_simulation_config(simulation_id)
@@ -1304,6 +1371,9 @@ def get_simulation_config(simulation_id: str):
 @simulation_bp.route('/<simulation_id>/config/download', methods=['GET'])
 def download_simulation_config(simulation_id: str):
     """Download simulation config file"""
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         manager = SimulationManager()
         sim_dir = manager._get_simulation_dir(simulation_id)
@@ -1341,6 +1411,9 @@ def download_simulation_script(script_name: str):
         - run_parallel_simulation.py
         - action_logger.py
     """
+    # Note: script_name contains dots (e.g. "run_twitter_simulation.py") which
+    # would be rejected by validate_simulation_id's regex. The allowlist check
+    # below is stricter and already prevents path traversal.
     try:
         # Scripts located in backend/scripts/ directory
         scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../scripts'))
@@ -1738,9 +1811,12 @@ def get_run_status(simulation_id: str):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         run_state = SimulationRunner.get_run_state(simulation_id)
-        
+
         if not run_state:
             return jsonify({
                 "success": True,
@@ -1807,6 +1883,9 @@ def get_run_status_detail(simulation_id: str):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         run_state = SimulationRunner.get_run_state(simulation_id)
         platform_filter = request.args.get('platform')
@@ -1892,13 +1971,16 @@ def get_simulation_actions(simulation_id: str):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
         platform = request.args.get('platform')
         agent_id = request.args.get('agent_id', type=int)
         round_num = request.args.get('round_num', type=int)
-        
+
         actions = SimulationRunner.get_actions(
             simulation_id=simulation_id,
             limit=limit,
@@ -1938,6 +2020,9 @@ def get_simulation_timeline(simulation_id: str):
 
     Returns summary info for each round
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         start_round = request.args.get('start_round', 0, type=int)
         end_round = request.args.get('end_round', type=int)
@@ -1972,6 +2057,9 @@ def get_agent_stats(simulation_id: str):
 
     Used for frontend display of Agent activity ranking, action distribution, etc.
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         stats = SimulationRunner.get_agent_stats(simulation_id)
         
@@ -2006,6 +2094,9 @@ def get_simulation_posts(simulation_id: str):
 
     Returns post list (read from SQLite database)
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         platform = request.args.get('platform', 'reddit')
         limit = request.args.get('limit', 50, type=int)
@@ -2082,6 +2173,9 @@ def get_simulation_comments(simulation_id: str):
         limit: Number to return
         offset: Offset
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         post_id = request.args.get('post_id')
         limit = request.args.get('limit', 50, type=int)
@@ -2160,6 +2254,9 @@ def get_sentiment_analysis(simulation_id: str):
     Returns polarization metrics including sentiment distribution,
     topic sentiment, emotion distribution, polarization index, and echo chamber score.
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         platform = request.args.get('platform', 'twitter')
 
@@ -2202,6 +2299,9 @@ def get_sentiment_timeline(simulation_id: str):
     Returns a list of time-ordered sentiment data points,
     each with mean sentiment and post count for that time window.
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         platform = request.args.get('platform', 'twitter')
 
@@ -2854,6 +2954,9 @@ def clone_simulation(simulation_id):
             }
         }
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         manager = SimulationManager()
 
@@ -3259,6 +3362,9 @@ def inject_news_events(simulation_id):
         3. Append to the simulation's event_config.initial_posts
         4. Save the updated config
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
@@ -3369,6 +3475,9 @@ def list_scenario_templates():
 @simulation_bp.route('/api/scenarios/<template_id>', methods=['GET'])
 def get_scenario_template(template_id):
     """Get detailed scenario template by ID"""
+    valid, error = validate_simulation_id(template_id)
+    if not valid:
+        return error
     try:
         template = get_template(template_id)
         if not template:
@@ -3403,6 +3512,9 @@ def apply_scenario_template(simulation_id):
     This updates the simulation config with the template's suggested config,
     agent archetypes, and events.
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         data = request.get_json() or {}
         template_id = data.get("template_id")
@@ -3509,6 +3621,9 @@ def scrape_sources():
 @simulation_bp.route('/api/simulation/<simulation_id>/enrich-personas', methods=['POST'])
 def enrich_personas_with_sources(simulation_id):
     """Scrape sources and inject context into simulation for persona enrichment"""
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     data = request.get_json() or {}
     urls = data.get('urls', [])
     keywords = data.get('keywords', [])
@@ -3600,6 +3715,9 @@ def inject_archetypes(simulation_id):
     Updates the simulation's agent_configs with behavioral profiles
     derived from the selected archetypes.
     """
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
     try:
         data = request.get_json() or {}
         archetype_requests = data.get('archetypes', [])
@@ -3676,6 +3794,77 @@ def inject_archetypes(simulation_id):
 
     except Exception as e:
         logger.error(f"Failed to inject archetypes into simulation {simulation_id}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@simulation_bp.route('/api/simulation/<simulation_id>/upload-whatsapp', methods=['POST'])
+def upload_whatsapp_chat(simulation_id):
+    """Upload and parse a WhatsApp chat export file"""
+    valid, error = validate_simulation_id(simulation_id)
+    if not valid:
+        return error
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file uploaded"}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({"success": False, "error": "Empty filename"}), 400
+
+    # Save uploaded file
+    sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+    if not os.path.exists(sim_dir):
+        os.makedirs(sim_dir, exist_ok=True)
+
+    upload_path = os.path.join(sim_dir, 'whatsapp_chat.txt')
+    file.save(upload_path)
+
+    try:
+        # Read and parse the chat
+        from ..services.whatsapp_parser import WhatsAppParser
+        with open(upload_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        parser = WhatsAppParser()
+        chat = parser.parse_export(content)
+
+        # Save parsed data as JSON
+        parsed_path = os.path.join(sim_dir, 'whatsapp_parsed.json')
+        parsed_data = {
+            "group_name": chat.group_name,
+            "participants": chat.participants,
+            "start_date": chat.start_date.isoformat() if chat.start_date else None,
+            "end_date": chat.end_date.isoformat() if chat.end_date else None,
+            "messages": [
+                {
+                    "timestamp": m.timestamp.isoformat(),
+                    "sender": m.sender,
+                    "content": m.content,
+                    "is_system_message": m.is_system_message,
+                    "is_media": m.is_media,
+                }
+                for m in chat.messages
+            ],
+        }
+        with open(parsed_path, 'w', encoding='utf-8') as f:
+            json.dump(parsed_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            "success": True,
+            "messages_count": len(chat.messages),
+            "participants": chat.participants,
+            "date_range": {
+                "start": chat.messages[0].timestamp.isoformat() if chat.messages else None,
+                "end": chat.messages[-1].timestamp.isoformat() if chat.messages else None,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to parse WhatsApp chat for simulation {simulation_id}: {e}")
         return jsonify({
             "success": False,
             "error": str(e),

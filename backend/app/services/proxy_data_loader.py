@@ -6,6 +6,7 @@ Provides persona examples, initial post templates, and sentiment calibration dat
 
 import json
 import os
+import threading
 from typing import Dict, Any, List, Optional
 
 from ..utils.logger import get_logger
@@ -20,38 +21,43 @@ class ProxyDataLoader:
     """Loads and provides proxy datasets for LLM prompting"""
 
     _instance = None
+    _lock = threading.Lock()
     _data = {}
 
     @classmethod
     def get_instance(cls) -> 'ProxyDataLoader':
-        """Singleton access"""
+        """Singleton access (thread-safe double-checked locking)"""
         if cls._instance is None:
-            cls._instance = cls()
-            cls._instance._load_all()
+            with cls._lock:
+                if cls._instance is None:
+                    instance = cls()
+                    instance._load_all()
+                    cls._instance = instance
         return cls._instance
 
     def _load_all(self):
-        """Load all proxy datasets"""
-        self._data = {}
-        files = {
-            'personas': 'persona_examples.json',
-            'initial_posts': 'initial_posts_examples.json',
-            'sentiment': 'sentiment_calibration.json',
-            'archetypes': 'persona_archetypes.json',
-        }
-        for key, filename in files.items():
-            path = os.path.join(DATA_DIR, filename)
-            try:
-                if os.path.exists(path):
-                    with open(path, 'r', encoding='utf-8') as f:
-                        self._data[key] = json.load(f)
-                    logger.info(f"Loaded proxy dataset: {filename}")
-                else:
-                    logger.warning(f"Proxy dataset not found: {path}")
+        """Load all proxy datasets (thread-safe)"""
+        with self._lock:
+            self._data = {}
+            files = {
+                'personas': 'persona_examples.json',
+                'initial_posts': 'initial_posts_examples.json',
+                'sentiment': 'sentiment_calibration.json',
+                'archetypes': 'persona_archetypes.json',
+            }
+            for key, filename in files.items():
+                path = os.path.join(DATA_DIR, filename)
+                try:
+                    if os.path.exists(path):
+                        with open(path, 'r', encoding='utf-8') as f:
+                            self._data[key] = json.load(f)
+                        logger.info(f"Loaded proxy dataset: {filename}")
+                    else:
+                        logger.warning(f"Proxy dataset not found: {path}")
+                        self._data[key] = {}
+                except Exception as e:
+                    logger.error(f"Failed to load proxy dataset {filename}: {e}")
                     self._data[key] = {}
-            except Exception as e:
-                logger.error(f"Failed to load proxy dataset {filename}: {e}")
-                self._data[key] = {}
 
     def get_persona_examples(self, entity_type: str = None, region: str = None, limit: int = 2) -> List[Dict]:
         """Get example personas, optionally filtered by entity type and region"""
