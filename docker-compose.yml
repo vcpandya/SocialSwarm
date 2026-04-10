@@ -1,9 +1,11 @@
 services:
-  mirofish:
-    image: ghcr.io/666ghj/mirofish:latest
-    # Mirror image (replace above if pulling is slow)
-    # image: ghcr.nju.edu.cn/666ghj/mirofish:latest
-    container_name: mirofish
+  socialswarm:
+    # Build locally from this fork's Dockerfile.
+    # The upstream MiroFish image (ghcr.io/666ghj/mirofish) does not include
+    # SocialSwarm fork features (multi-platform, news feed, archetypes, etc.),
+    # so we build from source rather than pulling a binary.
+    build: .
+    container_name: socialswarm
     env_file:
       - .env
     ports:

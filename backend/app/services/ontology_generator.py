@@ -4,8 +4,29 @@ Interface 1: Analyze text content and generate entity and relationship type defi
 """
 
 import json
+import re
 from typing import Dict, Any, List, Optional
 from ..utils.llm_client import LLMClient
+from ..utils.logger import get_logger
+
+logger = get_logger('mirofish.ontology')
+
+
+def _to_pascal_case(name: str) -> str:
+    """
+    Convert any-format name to PascalCase.
+    Examples: 'works_for' -> 'WorksFor', 'person' -> 'Person', 'camelCase' -> 'CamelCase'
+    Zep API requires entity type names to be PascalCase.
+    """
+    # Split on non-alphanumeric characters
+    parts = re.split(r'[^a-zA-Z0-9]+', name)
+    # Further split on camelCase boundaries (e.g. 'camelCase' -> ['camel', 'Case'])
+    words = []
+    for part in parts:
+        words.extend(re.sub(r'([a-z])([A-Z])', r'\1_\2', part).split('_'))
+    # Capitalize each word, filter empty strings
+    result = ''.join(word.capitalize() for word in words if word)
+    return result if result else 'Unknown'
 
 
 # System prompt for ontology generation
@@ -266,7 +287,16 @@ Based on the above content, design entity types and relationship types suitable 
             result["analysis_summary"] = ""
         
         # Validate entity types
+        # Track original -> PascalCase mapping so edge source_targets can be rewritten
+        entity_name_map: Dict[str, str] = {}
         for entity in result["entity_types"]:
+            # Force entity name to PascalCase (Zep API requirement)
+            if "name" in entity:
+                original_name = entity["name"]
+                entity["name"] = _to_pascal_case(original_name)
+                if entity["name"] != original_name:
+                    logger.warning(f"Entity type name '{original_name}' auto-converted to '{entity['name']}'")
+                entity_name_map[original_name] = entity["name"]
             if "attributes" not in entity:
                 entity["attributes"] = []
             if "examples" not in entity:
@@ -274,15 +304,54 @@ Based on the above content, design entity types and relationship types suitable 
             # Ensure description does not exceed 100 characters
             if len(entity.get("description", "")) > 100:
                 entity["description"] = entity["description"][:97] + "..."
-        
+
+        # Deduplicate entity types by name (keep first occurrence)
+        seen_entity_names = set()
+        deduped_entities = []
+        for entity in result["entity_types"]:
+            name = entity.get("name", "")
+            if name and name not in seen_entity_names:
+                seen_entity_names.add(name)
+                deduped_entities.append(entity)
+            elif name in seen_entity_names:
+                logger.warning(f"Duplicate entity type '{name}' removed during validation")
+        result["entity_types"] = deduped_entities
+
         # Validate relationship types
         for edge in result["edge_types"]:
+            # Force edge name to SCREAMING_SNAKE_CASE (Zep API requirement)
+            if "name" in edge:
+                original_name = edge["name"]
+                # Convert to snake_case first, then upper
+                snake = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', original_name)
+                snake = re.sub(r'[^a-zA-Z0-9]+', '_', snake).strip('_')
+                edge["name"] = snake.upper() if snake else "RELATES_TO"
+                if edge["name"] != original_name:
+                    logger.warning(f"Edge type name '{original_name}' auto-converted to '{edge['name']}'")
+            # Rewrite source_targets to match PascalCase entity names
+            for st in edge.get("source_targets", []):
+                if st.get("source") in entity_name_map:
+                    st["source"] = entity_name_map[st["source"]]
+                if st.get("target") in entity_name_map:
+                    st["target"] = entity_name_map[st["target"]]
             if "source_targets" not in edge:
                 edge["source_targets"] = []
             if "attributes" not in edge:
                 edge["attributes"] = []
             if len(edge.get("description", "")) > 100:
                 edge["description"] = edge["description"][:97] + "..."
+
+        # Deduplicate edge types by name
+        seen_edge_names = set()
+        deduped_edges = []
+        for edge in result["edge_types"]:
+            name = edge.get("name", "")
+            if name and name not in seen_edge_names:
+                seen_edge_names.add(name)
+                deduped_edges.append(edge)
+            elif name in seen_edge_names:
+                logger.warning(f"Duplicate edge type '{name}' removed during validation")
+        result["edge_types"] = deduped_edges
         
         # Zep API limits: max 10 custom entity types, max 10 custom edge types
         MAX_ENTITY_TYPES = 10
