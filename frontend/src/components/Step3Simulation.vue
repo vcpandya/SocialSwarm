@@ -91,13 +91,38 @@
       </div>
 
       <div class="action-controls">
-        <button 
+        <!-- Stop button (visible while running) -->
+        <button
+          v-if="phase === 1"
+          class="action-btn danger"
+          :disabled="isStopping"
+          @click="handleStopSimulation"
+        >
+          <span v-if="isStopping" class="loading-spinner-small"></span>
+          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>
+          {{ isStopping ? 'Stopping...' : 'Stop' }}
+        </button>
+
+        <!-- Restart button (visible when stopped, completed, or failed) -->
+        <button
+          v-if="phase === 2"
+          class="action-btn secondary"
+          :disabled="isStarting"
+          @click="doStartSimulation"
+        >
+          <span v-if="isStarting" class="loading-spinner-small spinner-dark"></span>
+          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          {{ isStarting ? 'Restarting...' : 'Restart' }}
+        </button>
+
+        <!-- Generate Report button -->
+        <button
           class="action-btn primary"
           :disabled="phase !== 2 || isGeneratingReport"
           @click="handleNextStep"
         >
           <span v-if="isGeneratingReport" class="loading-spinner-small"></span>
-          {{ isGeneratingReport ? $t('step3.launchingBtnText') : $t('step3.generateReport') }} 
+          {{ isGeneratingReport ? $t('step3.launchingBtnText') : $t('step3.generateReport') }}
           <span v-if="!isGeneratingReport" class="arrow-icon">→</span>
         </button>
       </div>
@@ -426,11 +451,13 @@ const doStartSimulation = async () => {
     } else {
       startError.value = res.error || t('step3.startFailed')
       addLog(`✗ ${t('step3.startFailed')}: ${res.error || t('step3.unknownError')}`)
+      phase.value = 2  // Show Restart button on failure
       emit('update-status', 'error')
     }
   } catch (err) {
     startError.value = err.message
     addLog(`✗ ${t('step3.startException')}: ${err.message}`)
+    phase.value = 2  // Show Restart button on failure
     emit('update-status', 'error')
   } finally {
     isStarting.value = false
@@ -687,11 +714,53 @@ watch(() => props.systemLogs?.length, () => {
   })
 })
 
-onMounted(() => {
+onMounted(async () => {
   addLog(t('step3.simRunInit'))
-  if (props.simulationId) {
-    doStartSimulation()
+  if (!props.simulationId) return
+
+  // Check if simulation is already running or has completed
+  try {
+    const res = await getRunStatus(props.simulationId)
+    if (res.success && res.data) {
+      const status = res.data.runner_status
+      if (status === 'running' || status === 'starting') {
+        // Resume monitoring an already-running simulation
+        addLog('Resuming monitoring of running simulation...')
+        phase.value = 1
+        runStatus.value = res.data
+        emit('update-status', 'processing')
+        startStatusPolling()
+        startDetailPolling()
+        return
+      } else if (status === 'completed') {
+        addLog('Previous simulation completed. Ready to generate report or restart.')
+        phase.value = 2
+        runStatus.value = res.data
+        emit('update-status', 'completed')
+        // Fetch final actions
+        await fetchRunStatusDetail()
+        return
+      } else if (status === 'stopped') {
+        addLog('Previous simulation was stopped. You can restart or generate a report from partial results.')
+        phase.value = 2
+        runStatus.value = res.data
+        emit('update-status', 'completed')
+        await fetchRunStatusDetail()
+        return
+      } else if (status === 'failed') {
+        addLog('Previous simulation failed. You can restart.')
+        phase.value = 2
+        runStatus.value = res.data
+        emit('update-status', 'error')
+        return
+      }
+    }
+  } catch (err) {
+    // No existing run state — this is a fresh simulation
+    addLog('No previous run state found. Starting fresh.')
   }
+
+  doStartSimulation()
 })
 
 onUnmounted(() => {
@@ -896,9 +965,33 @@ onUnmounted(() => {
   background: #333;
 }
 
+.action-btn.danger {
+  background: #DC2626;
+  color: #FFF;
+}
+
+.action-btn.danger:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
+.action-btn.secondary {
+  background: #FFF;
+  color: #000;
+  border: 1px solid #333;
+}
+
+.action-btn.secondary:hover:not(:disabled) {
+  background: #F5F5F5;
+}
+
 .action-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.spinner-dark {
+  border-color: rgba(0, 0, 0, 0.2);
+  border-top-color: #000;
 }
 
 /* --- Main Content Area --- */

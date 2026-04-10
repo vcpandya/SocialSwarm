@@ -288,13 +288,13 @@ const refreshGraph = () => {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   addLog(t('simView.init'))
-  
-  // Check and stop running simulation (when user returns from Step 3)
-  await checkAndStopRunningSimulation()
-  
-  // Load simulation data
+
+  // Check and stop running simulation in the background (don't block page rendering)
+  checkAndStopRunningSimulation()
+
+  // Load simulation data immediately
   loadSimulationData()
 })
 </script>

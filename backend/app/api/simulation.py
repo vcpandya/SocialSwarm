@@ -488,7 +488,43 @@ def prepare_simulation():
         # Check if forced regeneration is requested
         force_regenerate = data.get('force_regenerate', False)
         logger.info(f"Processing /prepare request: simulation_id={simulation_id}, force_regenerate={force_regenerate}")
-        
+
+        # Detect stale "preparing" state: the background thread may have died due to
+        # server restart, Flask hot-reload, or computer sleep. Two checks:
+        # 1. If TaskManager has no active task for this simulation → thread is definitely dead
+        # 2. If updated_at is >5 min old → thread likely died (heartbeat stopped)
+        if state.status == SimulationStatus.PREPARING and not getattr(state, 'config_generated', False):
+            task_manager_check = TaskManager()
+            has_active_task = False
+            for t in task_manager_check.list_tasks(task_type="simulation_prepare"):
+                if (t.get("metadata", {}).get("simulation_id") == simulation_id
+                        and t.get("status") in ("pending", "processing")):
+                    has_active_task = True
+                    break
+
+            if not has_active_task:
+                logger.warning(f"Simulation {simulation_id} in 'preparing' but no active task in TaskManager (server likely restarted). Resetting.")
+                state.status = SimulationStatus.FAILED
+                state.error = "Preparation interrupted (server restarted). Will retry."
+                manager._save_simulation_state(state)
+                force_regenerate = True
+            else:
+                # Task exists but check if it's been stale for >5 minutes
+                from datetime import datetime, timedelta
+                updated_at = getattr(state, 'updated_at', None)
+                if updated_at:
+                    try:
+                        if isinstance(updated_at, str):
+                            updated_at = datetime.fromisoformat(updated_at)
+                        if datetime.now() - updated_at > timedelta(minutes=5):
+                            logger.warning(f"Simulation {simulation_id} stuck in 'preparing' for >5 min (updated_at={updated_at}). Resetting to failed.")
+                            state.status = SimulationStatus.FAILED
+                            state.error = "Preparation timed out (background thread likely died). Will retry."
+                            manager._save_simulation_state(state)
+                            force_regenerate = True
+                    except Exception as e:
+                        logger.warning(f"Failed to check stale preparation: {e}")
+
         # Check if already prepared (avoid duplicate generation)
         if not force_regenerate:
             logger.debug(f"Checking if simulation {simulation_id} is already prepared...")
@@ -579,7 +615,8 @@ def prepare_simulation():
                 # Prepare simulation (with progress callback)
                 # Store stage progress details
                 stage_details = {}
-                
+                _last_heartbeat = [0]  # Track last state.json update time
+
                 def progress_callback(stage, progress, message, **kwargs):
                     # Calculate total progress
                     stage_weights = {
@@ -640,7 +677,22 @@ def prepare_simulation():
                         message=detailed_message,
                         progress_detail=progress_detail_data
                     )
-                
+
+                    # Periodically update state.json's updated_at so stale detection
+                    # knows the thread is alive (at most once per 60 seconds)
+                    import time as _time
+                    now = _time.time()
+                    if now - _last_heartbeat[0] > 60:
+                        _last_heartbeat[0] = now
+                        try:
+                            from datetime import datetime
+                            current_state = manager.get_simulation(simulation_id)
+                            if current_state:
+                                current_state.updated_at = datetime.now().isoformat()
+                                manager._save_simulation_state(current_state)
+                        except Exception:
+                            pass  # Non-critical
+
                 result_state = manager.prepare_simulation(
                     simulation_id=simulation_id,
                     simulation_requirement=simulation_requirement,
@@ -3275,7 +3327,7 @@ def compare_simulations():
 
 # ============== News Feed Endpoints ==============
 
-@simulation_bp.route('/api/news/feeds', methods=['GET'])
+@simulation_bp.route('/news/feeds', methods=['GET'])
 def get_available_feeds():
     """Return the catalog of available RSS feeds by region and category"""
     try:
@@ -3292,7 +3344,7 @@ def get_available_feeds():
         }), 500
 
 
-@simulation_bp.route('/api/news/fetch', methods=['POST'])
+@simulation_bp.route('/news/fetch', methods=['POST'])
 def fetch_news():
     """
     Fetch news articles for simulation seeding.
@@ -3342,7 +3394,7 @@ def fetch_news():
         }), 500
 
 
-@simulation_bp.route('/api/simulation/<simulation_id>/inject-news', methods=['POST'])
+@simulation_bp.route('/<simulation_id>/inject-news', methods=['POST'])
 def inject_news_events(simulation_id):
     """
     Fetch news and inject as initial posts into a simulation config.
@@ -3447,7 +3499,7 @@ def inject_news_events(simulation_id):
 
 # ============== Scenario Template Endpoints ==============
 
-@simulation_bp.route('/api/scenarios', methods=['GET'])
+@simulation_bp.route('/scenarios', methods=['GET'])
 def list_scenario_templates():
     """
     List available scenario templates.
@@ -3472,7 +3524,7 @@ def list_scenario_templates():
         }), 500
 
 
-@simulation_bp.route('/api/scenarios/<template_id>', methods=['GET'])
+@simulation_bp.route('/scenarios/<template_id>', methods=['GET'])
 def get_scenario_template(template_id):
     """Get detailed scenario template by ID"""
     valid, error = validate_simulation_id(template_id)
@@ -3499,7 +3551,7 @@ def get_scenario_template(template_id):
         }), 500
 
 
-@simulation_bp.route('/api/simulation/<simulation_id>/apply-scenario', methods=['POST'])
+@simulation_bp.route('/<simulation_id>/apply-scenario', methods=['POST'])
 def apply_scenario_template(simulation_id):
     """
     Apply a scenario template to an existing simulation.
@@ -3591,7 +3643,7 @@ def apply_scenario_template(simulation_id):
         }), 500
 
 
-@simulation_bp.route('/api/scrape', methods=['POST'])
+@simulation_bp.route('/scrape', methods=['POST'])
 def scrape_sources():
     """Scrape web sources for persona enrichment"""
     data = request.get_json() or {}
@@ -3618,7 +3670,7 @@ def scrape_sources():
     })
 
 
-@simulation_bp.route('/api/simulation/<simulation_id>/enrich-personas', methods=['POST'])
+@simulation_bp.route('/<simulation_id>/enrich-personas', methods=['POST'])
 def enrich_personas_with_sources(simulation_id):
     """Scrape sources and inject context into simulation for persona enrichment"""
     valid, error = validate_simulation_id(simulation_id)
@@ -3667,7 +3719,7 @@ def enrich_personas_with_sources(simulation_id):
 
 # ============== Persona Archetype Endpoints ==============
 
-@simulation_bp.route('/api/archetypes', methods=['GET'])
+@simulation_bp.route('/archetypes', methods=['GET'])
 def list_archetypes():
     """List available persona archetypes.
 
@@ -3699,7 +3751,7 @@ def list_archetypes():
         }), 500
 
 
-@simulation_bp.route('/api/simulation/<simulation_id>/inject-archetypes', methods=['POST'])
+@simulation_bp.route('/<simulation_id>/inject-archetypes', methods=['POST'])
 def inject_archetypes(simulation_id):
     """Inject archetype personas into simulation config.
 
@@ -3801,7 +3853,7 @@ def inject_archetypes(simulation_id):
         }), 500
 
 
-@simulation_bp.route('/api/simulation/<simulation_id>/upload-whatsapp', methods=['POST'])
+@simulation_bp.route('/<simulation_id>/upload-whatsapp', methods=['POST'])
 def upload_whatsapp_chat(simulation_id):
     """Upload and parse a WhatsApp chat export file"""
     valid, error = validate_simulation_id(simulation_id)

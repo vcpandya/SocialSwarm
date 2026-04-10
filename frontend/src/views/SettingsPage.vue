@@ -287,7 +287,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getSettings, saveSettings, validateSettings } from '../api/settings'
+import service from '../api/index'
+import { saveSettings, validateSettings } from '../api/settings'
 import { setLocale, getLocale } from '../i18n'
 
 // Loading state
@@ -428,23 +429,31 @@ async function testAndSave(group) {
   saving[group] = true
   try {
     const payload = buildPayload(group)
-    // Extract inner values for validation (buildPayload wraps in {group: {...}})
-    const groupKey = group === 'boost' ? 'boost_llm' : group
-    const validateValues = payload[groupKey] || {}
-    // For validation, send actual key values (not masked)
-    if (group === 'llm') {
-      validateValues.api_key = changedKeys.llm_api_key ? form.llm_api_key : undefined
-      validateValues.base_url = form.llm_base_url
-      validateValues.model_name = form.llm_model_name
-    } else if (group === 'zep') {
-      validateValues.api_key = changedKeys.zep_api_key ? form.zep_api_key : undefined
+
+    // Only run validation if the API key was actually changed (or entered fresh).
+    // When the key is unchanged (masked), skip validation — the stored key was
+    // already validated when it was first saved.
+    const keyChanged = (group === 'llm' && changedKeys.llm_api_key)
+      || (group === 'zep' && changedKeys.zep_api_key)
+
+    if (keyChanged) {
+      const groupKey = group === 'boost' ? 'boost_llm' : group
+      const validateValues = { ...(payload[groupKey] || {}) }
+      if (group === 'llm') {
+        validateValues.api_key = form.llm_api_key
+        validateValues.base_url = form.llm_base_url
+        validateValues.model_name = form.llm_model_name
+      } else if (group === 'zep') {
+        validateValues.api_key = form.zep_api_key
+      }
+      const validateRes = await validateSettings(group, validateValues)
+      if (validateRes.valid === false) {
+        showToast(validateRes.message || validateRes.error || 'Validation failed', 'error')
+        return
+      }
     }
-    const validateRes = await validateSettings(group, validateValues)
-    if (validateRes.valid === false) {
-      showToast(validateRes.message || validateRes.error || 'Validation failed', 'error')
-      return
-    }
-    // Then save
+
+    // Save (merge_and_save on backend preserves existing keys not in payload)
     await saveSettings(payload)
     showToast(`${group.toUpperCase()} configuration saved successfully`)
   } catch (err) {
@@ -486,7 +495,7 @@ async function saveAppSection() {
 
 onMounted(async () => {
   try {
-    const res = await getSettings()
+    const res = await service.get('/api/settings', { timeout: 8000 })
     const data = res.data || {}
     // Map nested response to flat form fields
     if (data.llm) {
@@ -514,7 +523,7 @@ onMounted(async () => {
     }
     form.language = data.app?.language || getLocale()
   } catch (err) {
-    showToast('Failed to load settings', 'error')
+    showToast('Could not load settings from backend. You can still enter and save values.', 'error')
   } finally {
     loading.value = false
   }

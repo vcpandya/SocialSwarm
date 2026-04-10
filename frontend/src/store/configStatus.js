@@ -12,9 +12,14 @@ const state = reactive({
 
 export async function fetchConfigStatus() {
   try {
-    const res = await fetch(
-      (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001') + '/api/settings/status'
-    )
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+    const res = await fetch('/api/settings/status', {
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
     const json = await res.json()
     if (json.success) {
       state.configured = json.data.configured
@@ -25,7 +30,7 @@ export async function fetchConfigStatus() {
       state.missing = []
     }
   } catch (e) {
-    // Backend unreachable — assume configured to not block
+    // Backend unreachable or timed out — assume configured to not block
     console.warn('Could not reach backend to check config status:', e)
     state.configured = true
     state.missing = []

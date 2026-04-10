@@ -308,8 +308,11 @@ class SimulationManager:
             self._save_simulation_state(state)
             
             sim_dir = self._get_simulation_dir(simulation_id)
-            
+
             # ========== Phase 1: Read and filter entities ==========
+            logger.info(f"{'='*60}")
+            logger.info(f"PHASE 1/4: Reading entities from Zep graph — simulation={simulation_id}")
+            logger.info(f"{'='*60}")
             if progress_callback:
                 progress_callback("reading", 0, "Connecting to Zep graph...")
             
@@ -342,16 +345,55 @@ class SimulationManager:
                 return state
             
             # ========== Phase 2: Generate Agent Profiles ==========
+            logger.info(f"{'='*60}")
+            logger.info(f"PHASE 2/4: Generating Agent Profiles — {filtered.filtered_count} entities found")
+            logger.info(f"{'='*60}")
             total_entities = len(filtered.entities)
-            
+
             if progress_callback:
                 progress_callback(
-                    "generating_profiles", 0, 
+                    "generating_profiles", 0,
                     "Starting generation...",
                     current=0,
                     total=total_entities
                 )
-            
+
+            # Check for existing partial profiles (resume support)
+            existing_profiles_path = os.path.join(sim_dir, "reddit_profiles.json")
+            existing_profiles_by_uuid = {}
+            if os.path.exists(existing_profiles_path):
+                try:
+                    with open(existing_profiles_path, 'r', encoding='utf-8') as f:
+                        existing_data = json.load(f)
+                    if isinstance(existing_data, list) and len(existing_data) > 0:
+                        for p in existing_data:
+                            uuid = p.get("source_entity_uuid")
+                            if uuid:
+                                existing_profiles_by_uuid[uuid] = p
+                        if existing_profiles_by_uuid:
+                            logger.info(f"Found {len(existing_profiles_by_uuid)} existing profiles on disk, will skip regenerating them")
+                except Exception as e:
+                    logger.warning(f"Failed to read existing profiles for resume: {e}")
+                    existing_profiles_by_uuid = {}
+
+            # Filter out entities that already have profiles
+            entities_to_generate = []
+            resumed_profiles = []
+            for entity in filtered.entities:
+                if entity.uuid in existing_profiles_by_uuid:
+                    resumed_profiles.append(existing_profiles_by_uuid[entity.uuid])
+                else:
+                    entities_to_generate.append(entity)
+
+            if resumed_profiles and progress_callback:
+                progress_callback(
+                    "generating_profiles",
+                    int(len(resumed_profiles) / total_entities * 100),
+                    f"Resumed {len(resumed_profiles)}/{total_entities} existing profiles, generating remaining {len(entities_to_generate)}...",
+                    current=len(resumed_profiles),
+                    total=total_entities
+                )
+
             # Load scraped source context if available
             scraped_context_path = os.path.join(sim_dir, "scraped_prompt_context.txt")
             extra_context = ""
@@ -366,18 +408,22 @@ class SimulationManager:
 
             # Pass graph_id to enable Zep retrieval for richer context
             generator = OasisProfileGenerator(graph_id=state.graph_id)
-            
+
+            resumed_count = len(resumed_profiles)
+
             def profile_progress(current, total, msg):
                 if progress_callback:
+                    # Offset progress by resumed count
+                    actual_current = resumed_count + current
                     progress_callback(
-                        "generating_profiles", 
-                        int(current / total * 100), 
+                        "generating_profiles",
+                        int(actual_current / total_entities * 100),
                         msg,
-                        current=current,
-                        total=total,
+                        current=actual_current,
+                        total=total_entities,
                         item_name=msg
                     )
-            
+
             # Set realtime save file path (prefer Reddit JSON format)
             realtime_output_path = None
             realtime_platform = "reddit"
@@ -387,17 +433,65 @@ class SimulationManager:
             elif state.enable_twitter:
                 realtime_output_path = os.path.join(sim_dir, "twitter_profiles.csv")
                 realtime_platform = "twitter"
-            
-            profiles = generator.generate_profiles_from_entities(
-                entities=filtered.entities,
-                use_llm=use_llm_for_profiles,
-                progress_callback=profile_progress,
-                graph_id=state.graph_id,  # Pass graph_id for Zep retrieval
-                parallel_count=parallel_profile_count,  # Parallel generation count
-                realtime_output_path=realtime_output_path,  # Realtime save path
-                output_platform=realtime_platform,  # Output format
-                extra_context=extra_context  # Scraped source context
-            )
+
+            if entities_to_generate:
+                # Generate only the missing profiles
+                new_profiles = generator.generate_profiles_from_entities(
+                    entities=entities_to_generate,
+                    use_llm=use_llm_for_profiles,
+                    progress_callback=profile_progress,
+                    graph_id=state.graph_id,
+                    parallel_count=parallel_profile_count,
+                    realtime_output_path=None,  # Don't write partial — we'll merge and write below
+                    output_platform=realtime_platform,
+                    extra_context=extra_context
+                )
+            else:
+                new_profiles = []
+                logger.info("All profiles already exist on disk, skipping generation")
+
+            # Merge resumed + new profiles, maintaining entity order
+            profiles = []
+            new_profile_map = {}
+            for p in new_profiles:
+                if p and p.source_entity_uuid:
+                    new_profile_map[p.source_entity_uuid] = p
+
+            for idx, entity in enumerate(filtered.entities):
+                if entity.uuid in existing_profiles_by_uuid:
+                    # Reconstruct OasisAgentProfile from saved data
+                    saved = existing_profiles_by_uuid[entity.uuid]
+                    profile = OasisAgentProfile(
+                        user_id=idx,
+                        user_name=saved.get("username", f"user_{idx}"),
+                        name=saved.get("name", entity.name),
+                        bio=saved.get("bio", ""),
+                        persona=saved.get("persona", ""),
+                        age=saved.get("age"),
+                        gender=saved.get("gender"),
+                        mbti=saved.get("mbti"),
+                        profession=saved.get("profession"),
+                        country=saved.get("country"),
+                        interested_topics=saved.get("interested_topics", []),
+                        source_entity_uuid=entity.uuid,
+                        source_entity_type=saved.get("source_entity_type"),
+                    )
+                    profiles.append(profile)
+                elif entity.uuid in new_profile_map:
+                    p = new_profile_map[entity.uuid]
+                    p.user_id = idx  # Ensure correct order
+                    profiles.append(p)
+                else:
+                    # Fallback — shouldn't happen
+                    profiles.append(OasisAgentProfile(
+                        user_id=idx,
+                        user_name=generator._generate_username(entity.name),
+                        name=entity.name,
+                        bio=f"{entity.get_entity_type()}: {entity.name}",
+                        persona=entity.summary or "A participant in social discussions.",
+                        source_entity_uuid=entity.uuid,
+                        source_entity_type=entity.get_entity_type(),
+                    ))
             
             state.profiles_count = len(profiles)
             
@@ -459,72 +553,109 @@ class SimulationManager:
                 )
             
             # ========== Phase 3: LLM intelligent simulation config generation ==========
-            if progress_callback:
-                progress_callback(
-                    "generating_config", 0, 
-                    "Analyzing simulation requirements...",
-                    current=0,
-                    total=3
-                )
-            
-            config_generator = SimulationConfigGenerator()
-            
-            if progress_callback:
-                progress_callback(
-                    "generating_config", 30, 
-                    "Calling LLM to generate config...",
-                    current=1,
-                    total=3
-                )
-            
-            sim_params = config_generator.generate_config(
-                simulation_id=simulation_id,
-                project_id=state.project_id,
-                graph_id=state.graph_id,
-                simulation_requirement=simulation_requirement,
-                document_text=document_text,
-                entities=filtered.entities,
-                enable_twitter=state.enable_twitter,
-                enable_reddit=state.enable_reddit,
-                enable_whatsapp=state.enable_whatsapp,
-                enable_youtube=state.enable_youtube,
-                enable_instagram=state.enable_instagram,
-                timezone=timezone
-            )
-            
-            if progress_callback:
-                progress_callback(
-                    "generating_config", 70, 
-                    "Saving config files...",
-                    current=2,
-                    total=3
-                )
-            
-            # Save config file
+            logger.info(f"{'='*60}")
+            logger.info(f"PHASE 3/4: Generating simulation config via LLM — {len(profiles)} profiles ready")
+            logger.info(f"{'='*60}")
             config_path = os.path.join(sim_dir, "simulation_config.json")
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(sim_params.to_json())
-            
-            state.config_generated = True
-            state.config_reasoning = sim_params.generation_reasoning
-            
-            if progress_callback:
-                progress_callback(
-                    "generating_config", 100, 
-                    "Config generation completed",
-                    current=3,
-                    total=3
+            existing_config = None
+
+            # Check if config already exists on disk (resume support)
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        existing_config = json.load(f)
+                    if existing_config and isinstance(existing_config, dict):
+                        logger.info(f"Found existing simulation_config.json on disk, skipping config generation")
+                        if progress_callback:
+                            progress_callback(
+                                "generating_config", 100,
+                                "Config already exists, resuming...",
+                                current=3, total=3
+                            )
+                except Exception as e:
+                    logger.warning(f"Failed to read existing config for resume: {e}")
+                    existing_config = None
+
+            if not existing_config:
+                if progress_callback:
+                    progress_callback(
+                        "generating_config", 0,
+                        "Analyzing simulation requirements...",
+                        current=0,
+                        total=3
+                    )
+
+                config_generator = SimulationConfigGenerator()
+
+                if progress_callback:
+                    progress_callback(
+                        "generating_config", 30,
+                        "Calling LLM to generate config...",
+                        current=1,
+                        total=3
+                    )
+
+                # Wrap progress_callback to adapt config generator's (step, total, msg) signature
+                # to the manager's (stage, progress_pct, msg, **kwargs) signature
+                def config_progress(step, total, message):
+                    if progress_callback:
+                        pct = int(step / total * 100) if total > 0 else 0
+                        progress_callback(
+                            "generating_config", pct, message,
+                            current=step, total=total
+                        )
+
+                sim_params = config_generator.generate_config(
+                    simulation_id=simulation_id,
+                    project_id=state.project_id,
+                    graph_id=state.graph_id,
+                    simulation_requirement=simulation_requirement,
+                    document_text=document_text,
+                    entities=filtered.entities,
+                    enable_twitter=state.enable_twitter,
+                    enable_reddit=state.enable_reddit,
+                    enable_whatsapp=state.enable_whatsapp,
+                    enable_youtube=state.enable_youtube,
+                    enable_instagram=state.enable_instagram,
+                    progress_callback=config_progress,
+                    timezone=timezone
                 )
-            
+
+                if progress_callback:
+                    progress_callback(
+                        "generating_config", 70,
+                        "Saving config files...",
+                        current=2,
+                        total=3
+                    )
+
+                # Save config file
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    f.write(sim_params.to_json())
+
+                state.config_reasoning = sim_params.generation_reasoning
+
+                if progress_callback:
+                    progress_callback(
+                        "generating_config", 100,
+                        "Config generation completed",
+                        current=3,
+                        total=3
+                    )
+
+            state.config_generated = True
+
             # Note: run scripts stay in backend/scripts/ directory, no longer copied to simulation directory
             # When starting simulation, simulation_runner runs scripts from scripts/ directory
-            
+
             # Update state
             state.status = SimulationStatus.READY
             self._save_simulation_state(state)
-            
-            logger.info(f"Simulation preparation completed: {simulation_id}, "
-                       f"entities={state.entities_count}, profiles={state.profiles_count}")
+
+            logger.info(f"{'='*60}")
+            logger.info(f"PREPARATION COMPLETE: simulation={simulation_id}")
+            logger.info(f"  entities={state.entities_count}, profiles={state.profiles_count}, status=READY")
+            logger.info(f"{'='*60}")
             
             return state
             

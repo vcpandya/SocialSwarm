@@ -22,7 +22,7 @@ from ..config import Config
 from ..utils.logger import get_logger
 from .zep_entity_reader import EntityNode, ZepEntityReader
 from .proxy_data_loader import ProxyDataLoader
-from .language_config import get_language_instruction, assign_language_to_agent
+from .language_config import get_language_instruction
 
 logger = get_logger('mirofish.oasis_profile')
 
@@ -312,7 +312,8 @@ class OasisProfileGenerator:
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            timeout=60.0,  # 60 second timeout per request
         )
 
         # Zep client for retrieving rich context
@@ -499,6 +500,9 @@ class OasisProfileGenerator:
             return None
         
         try:
+            logger.info(f"    Zep SEARCH: entity='{entity_name}' graph={self.graph_id}")
+            import time as _zt
+            _zep_start = _zt.time()
             # Execute edges and nodes search in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 edge_future = executor.submit(search_edges)
@@ -534,7 +538,8 @@ class OasisProfileGenerator:
                 context_parts.append("Related entities:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
             results["context"] = "\n\n".join(context_parts)
             
-            logger.info(f"Zep hybrid search complete: {entity_name}, retrieved {len(results['facts'])} facts, {len(results['node_summaries'])} related nodes")
+            _zep_elapsed = _zt.time() - _zep_start
+            logger.info(f"    Zep DONE: entity='{entity_name}' time={_zep_elapsed:.1f}s facts={len(results['facts'])} nodes={len(results['node_summaries'])}")
             
         except concurrent.futures.TimeoutError:
             logger.warning(f"Zep retrieval timeout ({entity_name})")
@@ -659,9 +664,13 @@ class OasisProfileGenerator:
         # Try multiple times until success or max retry count reached
         max_attempts = 3
         last_error = None
-        
+
         for attempt in range(max_attempts):
             try:
+                logger.info(f">>> LLM CALL: entity='{entity_name}' type='{entity_type}' attempt={attempt+1}/{max_attempts} model={self.model_name}")
+                import time as _t
+                _llm_start = _t.time()
+
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=[
@@ -673,10 +682,15 @@ class OasisProfileGenerator:
                     # Do not set max_tokens, let LLM generate freely
                 )
 
+                _llm_elapsed = _t.time() - _llm_start
                 content = response.choices[0].message.content
 
                 # Check if truncated (finish_reason is not 'stop')
                 finish_reason = response.choices[0].finish_reason
+                usage = getattr(response, 'usage', None)
+                tokens_info = f"tokens={usage.total_tokens}" if usage else "tokens=N/A"
+                logger.info(f"<<< LLM RESPONSE: entity='{entity_name}' time={_llm_elapsed:.1f}s finish={finish_reason} {tokens_info} len={len(content)}chars")
+
                 if finish_reason == 'length':
                     logger.warning(f"LLM output truncated (attempt {attempt+1}), attempting fix...")
                     content = self._fix_truncated_json(content)
@@ -684,15 +698,16 @@ class OasisProfileGenerator:
                 # Try to parse JSON
                 try:
                     result = json.loads(content)
-                    
+
                     # Validate required fields
                     if "bio" not in result or not result["bio"]:
                         result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
                     if "persona" not in result or not result["persona"]:
                         result["persona"] = entity_summary or f"{entity_name} is a {entity_type}."
-                    
+
+                    logger.info(f"    LLM OK: entity='{entity_name}' bio={len(result.get('bio',''))}chars persona={len(result.get('persona',''))}chars")
                     return result
-                    
+
                 except json.JSONDecodeError as je:
                     logger.warning(f"JSON parsing failed (attempt {attempt+1}): {str(je)[:80]}")
 
@@ -700,17 +715,18 @@ class OasisProfileGenerator:
                     result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
                     if result.get("_fixed"):
                         del result["_fixed"]
+                        logger.info(f"    LLM OK (fixed JSON): entity='{entity_name}'")
                         return result
-                    
+
                     last_error = je
-                    
+
             except Exception as e:
-                logger.warning(f"LLM call failed (attempt {attempt+1}): {str(e)[:80]}")
+                logger.warning(f"LLM call FAILED (attempt {attempt+1}): entity='{entity_name}' error={str(e)[:120]}")
                 last_error = e
                 import time
                 time.sleep(1 * (attempt + 1))  # Exponential backoff
 
-        logger.warning(f"LLM persona generation failed ({max_attempts} attempts): {last_error}, using rule-based generation")
+        logger.warning(f"LLM persona generation FAILED after {max_attempts} attempts: entity='{entity_name}' error={last_error}, using rule-based fallback")
         return self._generate_profile_rule_based(
             entity_name, entity_type, entity_summary, entity_attributes
         )
@@ -1103,7 +1119,10 @@ Additional context from source materials (use this to make the profile more grou
         def generate_single_profile(idx: int, entity: EntityNode) -> tuple:
             """Worker function to generate a single profile"""
             entity_type = entity.get_entity_type() or "Entity"
-            
+            import time as _gt
+            _gen_start = _gt.time()
+            logger.info(f"=== START generating profile: [{idx+1}] entity='{entity.name}' type='{entity_type}' ===")
+
             try:
                 profile = self.generate_profile_from_entity(
                     entity=entity,
@@ -1111,14 +1130,17 @@ Additional context from source materials (use this to make the profile more grou
                     use_llm=use_llm,
                     extra_context=extra_context
                 )
-                
+
+                _gen_elapsed = _gt.time() - _gen_start
+                logger.info(f"=== DONE generating profile: [{idx+1}] entity='{entity.name}' time={_gen_elapsed:.1f}s ===")
+
                 # Output generated persona to console and log in realtime
                 self._print_generated_profile(entity.name, entity_type, profile)
-                
+
                 return idx, profile, None
-                
+
             except Exception as e:
-                logger.error(f"Failed to generate persona for entity {entity.name}: {str(e)}")
+                logger.error(f"=== FAILED generating profile: [{idx+1}] entity='{entity.name}' error={str(e)} ===")
                 # Create a basic fallback profile
                 fallback_profile = OasisAgentProfile(
                     user_id=idx,
@@ -1168,9 +1190,9 @@ Additional context from source materials (use this to make the profile more grou
                         )
                     
                     if error:
-                        logger.warning(f"[{current}/{total}] {entity.name} using fallback persona: {error}")
+                        logger.warning(f"[{current}/{total}] FALLBACK persona: {entity.name} — {error}")
                     else:
-                        logger.info(f"[{current}/{total}] Successfully generated persona: {entity.name} ({entity_type})")
+                        logger.info(f"[{current}/{total}] COMPLETE: {entity.name} ({entity_type}) — bio={len(profile.bio)}chars persona={len(profile.persona)}chars")
                         
                 except Exception as e:
                     logger.error(f"Exception occurred while processing entity {entity.name}: {str(e)}")
@@ -1276,8 +1298,13 @@ Additional context from source materials (use this to make the profile more grou
             self._save_twitter_csv(profiles, file_path)
         elif platform == "whatsapp":
             self._save_whatsapp_json(profiles, file_path)
+        elif platform in ("reddit", "youtube", "instagram"):
+            # YouTube and Instagram use Reddit-compatible JSON structure under the hood
+            # (OASIS lacks native support); language instruction is still applied per-platform
+            self._save_reddit_json(profiles, file_path, platform=platform)
         else:
-            self._save_reddit_json(profiles, file_path)
+            logger.warning(f"Unknown platform '{platform}', defaulting to reddit JSON format")
+            self._save_reddit_json(profiles, file_path, platform="reddit")
     
     def _save_twitter_csv(self, profiles: List[OasisAgentProfile], file_path: str):
         """
@@ -1362,11 +1389,13 @@ Additional context from source materials (use this to make the profile more grou
         
         return gender_map.get(gender_lower, "other")
     
-    def _save_reddit_json(self, profiles: List[OasisAgentProfile], file_path: str):
+    def _save_reddit_json(self, profiles: List[OasisAgentProfile], file_path: str, platform: str = "reddit"):
         """
-        Save Reddit Profile as JSON format.
+        Save Reddit-compatible Profile as JSON format.
 
-        Uses format consistent with to_reddit_format() to ensure OASIS can read correctly.
+        Used for Reddit, YouTube, and Instagram (all share the same JSON structure under the hood).
+        Applies platform-specific language instructions to each persona.
+
         Must include user_id field - this is key for OASIS agent_graph.get_agent() matching!
 
         Required fields:
@@ -1374,42 +1403,48 @@ Additional context from source materials (use this to make the profile more grou
         - username: Username
         - name: Display name
         - bio: Short bio
-        - persona: Detailed persona
-        - age: Age (integer)
-        - gender: "male", "female", or "other"
-        - mbti: MBTI type
-        - country: Country
+        - persona: Detailed persona (with cultural context + language instruction woven in)
+        - age, gender, mbti, country, karma
         """
         data = []
         for idx, profile in enumerate(profiles):
-            # Use format consistent with to_reddit_format()
+            # Build persona text with cultural context + platform-specific language instruction
+            # (mirrors the logic in to_reddit_format / to_twitter_format / to_whatsapp_format)
+            persona_text = profile.persona or f"{profile.name} is a participant in social discussions."
+            cultural_snippet = profile._build_cultural_context_snippet()
+            if cultural_snippet:
+                persona_text = persona_text + cultural_snippet
+            if profile.language_preference:
+                lang_instruction = get_language_instruction(profile.language_preference.lower(), platform)
+                persona_text += f" Language: {lang_instruction}"
+
             item = {
                 "user_id": profile.user_id if profile.user_id is not None else idx,  # Critical: must include user_id
                 "username": profile.user_name,
                 "name": profile.name,
                 "bio": profile.bio[:150] if profile.bio else f"{profile.name}",
-                "persona": profile.persona or f"{profile.name} is a participant in social discussions.",
+                "persona": persona_text,
                 "karma": profile.karma if profile.karma else 1000,
                 "created_at": profile.created_at,
                 # OASIS required fields - ensure all have default values
                 "age": profile.age if profile.age else 30,
                 "gender": self._normalize_gender(profile.gender),
                 "mbti": profile.mbti if profile.mbti else "ISTJ",
-                "country": profile.country if profile.country else "China",
+                "country": profile.country if profile.country else "India",
             }
-            
+
             # Optional fields
             if profile.profession:
                 item["profession"] = profile.profession
             if profile.interested_topics:
                 item["interested_topics"] = profile.interested_topics
-            
+
             data.append(item)
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        logger.info(f"Saved {len(profiles)} Reddit Profiles to {file_path} (JSON format, includes user_id field)")
+
+        logger.info(f"Saved {len(profiles)} {platform.capitalize()} Profiles to {file_path} (JSON format, includes user_id field)")
     
     def _save_whatsapp_json(self, profiles: List[OasisAgentProfile], file_path: str):
         """

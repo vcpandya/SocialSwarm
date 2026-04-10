@@ -41,7 +41,10 @@ def main():
     debug = Config.DEBUG
 
     # Start server
-    app.run(host=host, port=port, debug=debug, threaded=True)
+    # Disable auto-reloader: it kills background threads (profile generation, config generation)
+    # when any Python file changes, causing preparation to restart endlessly.
+    # Debug mode is kept for error pages and logging, but reloader is off.
+    app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
 
 
 if __name__ == '__main__':

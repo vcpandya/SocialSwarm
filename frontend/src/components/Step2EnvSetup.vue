@@ -1,6 +1,28 @@
 <template>
   <div class="env-setup-panel">
     <div class="scroll-container">
+      <!-- Sticky preparation control bar -->
+      <div v-if="phase >= 1 && phase < 4" class="prep-control-bar">
+        <div v-if="!prepareFailed" class="prep-control-inner">
+          <div class="prep-status-info">
+            <span class="prep-dot"></span>
+            <span class="prep-text">{{ currentStage || 'Preparing' }}... {{ prepareProgress }}%</span>
+          </div>
+          <div class="prep-progress-track">
+            <div class="prep-progress-fill" :style="{ width: prepareProgress + '%' }"></div>
+          </div>
+          <button class="prep-stop-btn" :disabled="isStopping" @click="stopPreparation">
+            {{ isStopping ? 'Stopping...' : 'Stop' }}
+          </button>
+        </div>
+        <div v-else class="prep-control-inner prep-failed">
+          <span class="prep-text" style="color: #F56C6C;">Preparation failed or stopped</span>
+          <button class="prep-retry-btn" :disabled="isRetrying" @click="retryPrepare">
+            {{ isRetrying ? 'Retrying...' : 'Retry' }}
+          </button>
+        </div>
+      </div>
+
       <!-- Step 01: Simulation Instance -->
       <div class="step-card" :class="{ 'active': phase === 0, 'completed': phase > 0 }">
         <div class="card-header">
@@ -240,6 +262,7 @@
           </div>
           <div class="step-status">
             <span v-if="phase > 1" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="prepareFailed" class="badge" style="background: #FDE2E2; color: #F56C6C;">Failed</span>
             <span v-else-if="phase === 1" class="badge processing">{{ prepareProgress }}%</span>
             <span v-else class="badge pending">{{ $t('step2.waiting') }}</span>
           </div>
@@ -250,6 +273,26 @@
           <p class="description">
             {{ $t('step2.genPersonasDescFull') }}
           </p>
+
+          <!-- Stop button while preparation is running -->
+          <div v-if="phase === 1 && !prepareFailed" style="margin: 12px 0; padding: 12px; background: #FFF8E6; border-radius: 6px; border: 1px solid #FAECD8;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <p style="margin: 0; font-size: 13px; color: #E6A23C;">
+                Preparing... {{ prepareProgress }}% — {{ currentStage || 'initializing' }}
+              </p>
+              <button class="action-btn" style="padding: 6px 16px; font-size: 12px; background: #DC2626; color: #FFF; border: none;" :disabled="isStopping" @click="stopPreparation">
+                {{ isStopping ? 'Stopping...' : 'Stop' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Retry button when preparation failed or stopped -->
+          <div v-if="prepareFailed" style="margin: 12px 0; padding: 12px; background: #FEF0F0; border-radius: 6px; border: 1px solid #FDE2E2;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #F56C6C;">Preparation failed or was stopped. The background task may have been interrupted.</p>
+            <button class="action-btn primary" style="padding: 8px 20px; font-size: 12px;" :disabled="isRetrying" @click="retryPrepare">
+              {{ isRetrying ? 'Retrying...' : 'Retry Preparation' }}
+            </button>
+          </div>
 
           <!-- Profiles Stats -->
           <div v-if="profiles.length > 0" class="stats-grid">
@@ -1059,6 +1102,7 @@ import { useI18n } from 'vue-i18n'
 import {
   prepareSimulation,
   getPrepareStatus,
+  getSimulation,
   getSimulationProfilesRealtime,
   getSimulationConfig,
   getSimulationConfigRealtime
@@ -1077,6 +1121,9 @@ const emit = defineEmits(['go-back', 'next-step', 'add-log', 'update-status'])
 
 // State
 const phase = ref(0) // 0: initialized, 1: generating personas, 2: generating config, 3: complete
+const prepareFailed = ref(false)
+const isRetrying = ref(false)
+const isStopping = ref(false)
 const taskId = ref(null)
 const prepareProgress = ref(0)
 const currentStage = ref('')
@@ -1201,7 +1248,7 @@ const selectedTemplateDescription = computed(() => {
 // Scenario template methods
 const fetchScenarioTemplates = async () => {
   try {
-    const res = await fetch('/api/simulation/api/scenarios')
+    const res = await fetch('/api/simulation/scenarios')
     if (res.ok) {
       const data = await res.json()
       scenarioTemplates.value = data.scenarios || []
@@ -1219,7 +1266,7 @@ const applyScenarioTemplate = async () => {
   if (!selectedTemplate.value || !props.simulationId) return
   applyingTemplate.value = true
   try {
-    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/apply-scenario`, {
+    const res = await fetch(`/api/simulation/${props.simulationId}/apply-scenario`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scenario_id: selectedTemplate.value })
@@ -1372,16 +1419,99 @@ const startPrepareSimulation = async () => {
       startProfilesPolling()
     } else {
       addLog(t('step2.prepareFailed', { error: res.error || t('step2.unknownError') }))
+      prepareFailed.value = true
       emit('update-status', 'error')
     }
   } catch (err) {
     addLog(t('step2.prepareException', { error: err.message }))
+    prepareFailed.value = true
     emit('update-status', 'error')
   }
 }
 
+const stopPreparation = () => {
+  isStopping.value = true
+  addLog('Stopping preparation...')
+  stopPolling()
+  stopProfilesPolling()
+  stopConfigPolling()
+  prepareFailed.value = true
+  isStopping.value = false
+  phase.value = 0
+  addLog('Preparation stopped. Click "Retry Preparation" to start again.')
+  emit('update-status', 'error')
+}
+
+const retryPrepare = async () => {
+  isRetrying.value = true
+  prepareFailed.value = false
+  phase.value = 0
+  prepareProgress.value = 0
+  taskId.value = null
+  profiles.value = []
+  currentStage.value = ''
+  progressMessage.value = ''
+  addLog('Retrying preparation with force_regenerate=true...')
+
+  try {
+    const res = await prepareSimulation({
+      simulation_id: props.simulationId,
+      use_llm_for_profiles: true,
+      parallel_profile_count: 5,
+      timezone: selectedTimezone.value,
+      enable_whatsapp: enableWhatsApp.value,
+      enable_youtube: enableYouTube.value,
+      enable_instagram: enableInstagram.value,
+      force_regenerate: true,
+      language_config: {
+        primary_language: primaryLanguage.value,
+        allow_code_switching: allowCodeSwitching.value
+      }
+    })
+
+    if (res.success && res.data) {
+      if (res.data.already_prepared) {
+        addLog('Preparation already complete.')
+        await loadPreparedData()
+        return
+      }
+
+      phase.value = 1
+      taskId.value = res.data.task_id
+      emit('update-status', 'processing')
+      addLog(`Preparation restarted. Task ID: ${res.data.task_id}`)
+
+      if (res.data.expected_entities_count) {
+        expectedTotal.value = res.data.expected_entities_count
+      }
+
+      startPolling()
+      startProfilesPolling()
+    } else {
+      addLog(`Retry failed: ${res.error || 'unknown error'}`)
+      prepareFailed.value = true
+      emit('update-status', 'error')
+    }
+  } catch (err) {
+    addLog(`Retry error: ${err.message}`)
+    prepareFailed.value = true
+    emit('update-status', 'error')
+  } finally {
+    isRetrying.value = false
+  }
+}
+
+// Track last progress change to detect stalls
+let lastProgressValue = -1
+let lastProgressChangeTime = Date.now()
+const STALL_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes with no progress change
+
 const startPolling = () => {
+  lastProgressValue = prepareProgress.value
+  lastProgressChangeTime = Date.now()
   pollTimer = setInterval(pollPrepareStatus, 2000)
+  // Pause polling when tab is hidden to avoid draining resources
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 }
 
 const stopPolling = () => {
@@ -1389,10 +1519,11 @@ const stopPolling = () => {
     clearInterval(pollTimer)
     pollTimer = null
   }
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 }
 
 const startProfilesPolling = () => {
-  profilesTimer = setInterval(fetchProfilesRealtime, 3000)
+  profilesTimer = setInterval(fetchProfilesRealtime, 5000) // Reduced from 3s to 5s
 }
 
 const stopProfilesPolling = () => {
@@ -1402,9 +1533,40 @@ const stopProfilesPolling = () => {
   }
 }
 
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    // Tab hidden — pause polling to save resources
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    if (profilesTimer) { clearInterval(profilesTimer); profilesTimer = null }
+  } else {
+    // Tab visible again — resume polling if still in progress
+    if (phase.value === 1 && !prepareFailed.value) {
+      if (!pollTimer) pollTimer = setInterval(pollPrepareStatus, 2000)
+      if (!profilesTimer) profilesTimer = setInterval(fetchProfilesRealtime, 5000)
+      // Immediately poll once
+      pollPrepareStatus()
+      fetchProfilesRealtime()
+    }
+  }
+}
+
 const pollPrepareStatus = async () => {
   if (!taskId.value && !props.simulationId) return
-  
+
+  // Stall detection: if progress hasn't changed in 10 minutes, assume failure
+  const currentProgress = prepareProgress.value
+  if (currentProgress !== lastProgressValue) {
+    lastProgressValue = currentProgress
+    lastProgressChangeTime = Date.now()
+  } else if (Date.now() - lastProgressChangeTime > STALL_TIMEOUT_MS) {
+    addLog('Preparation appears stalled (no progress for 10 minutes). Stopping polling.')
+    prepareFailed.value = true
+    stopPolling()
+    stopProfilesPolling()
+    emit('update-status', 'error')
+    return
+  }
+
   try {
     const res = await getPrepareStatus({
       task_id: taskId.value,
@@ -1455,8 +1617,10 @@ const pollPrepareStatus = async () => {
         await loadPreparedData()
       } else if (data.status === 'failed') {
         addLog(`✗ ${t('step2.prepFailedStatus', { error: data.error || t('step2.unknownError') })}`)
+        prepareFailed.value = true
         stopPolling()
         stopProfilesPolling()
+        emit('update-status', 'error')
       }
     }
   } catch (err) {
@@ -1628,7 +1792,7 @@ watch(() => props.systemLogs?.length, () => {
 const fetchArchetypes = async () => {
   archetypesLoading.value = true
   try {
-    const res = await fetch('/api/simulation/api/archetypes')
+    const res = await fetch('/api/simulation/archetypes')
     if (res.ok) {
       const data = await res.json()
       archetypes.value = data.archetypes || []
@@ -1648,7 +1812,7 @@ const injectArchetypes = async () => {
   archetypeInjecting.value = true
   archetypeResult.value = ''
   try {
-    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/inject-archetypes`, {
+    const res = await fetch(`/api/simulation/${props.simulationId}/inject-archetypes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1681,7 +1845,7 @@ const injectNews = async () => {
     const keywords = newsKeywords.value
       ? newsKeywords.value.split(',').map(k => k.trim()).filter(k => k)
       : []
-    const res = await fetch(`/api/simulation/api/simulation/${props.simulationId}/inject-news`, {
+    const res = await fetch(`/api/simulation/${props.simulationId}/inject-news`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1707,15 +1871,39 @@ const injectNews = async () => {
   }
 }
 
-onMounted(() => {
-  // Automatically start preparation flow
-  if (props.simulationId) {
-    addLog(t('step2.step2Init'))
-    startPrepareSimulation()
-  }
-  // Load archetypes and scenario templates
+onMounted(async () => {
+  // Load archetypes and scenario templates (always)
   fetchArchetypes()
   fetchScenarioTemplates()
+
+  if (!props.simulationId) return
+  addLog(t('step2.step2Init'))
+
+  // Check current simulation status before auto-starting preparation
+  try {
+    const simRes = await getSimulation(props.simulationId)
+    if (simRes.success && simRes.data) {
+      const status = simRes.data.status
+      const configGenerated = simRes.data.config_generated
+
+      if (status === 'ready' || (configGenerated && ['completed', 'stopped', 'running'].includes(status))) {
+        // Already prepared — load existing data without re-triggering preparation
+        addLog('Simulation already prepared, loading existing data...')
+        await loadPreparedData()
+        return
+      }
+
+      if (status === 'failed') {
+        addLog(`Previous preparation failed: ${simRes.data.error || 'unknown error'}. Retrying...`)
+      }
+    }
+  } catch (err) {
+    // If status check fails, proceed with normal preparation
+    console.warn('Failed to check simulation status:', err)
+  }
+
+  // Start preparation (fresh or retry after failure)
+  startPrepareSimulation()
 })
 
 onUnmounted(() => {
@@ -1741,6 +1929,108 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.prep-control-bar {
+  position: sticky;
+  top: -24px;
+  z-index: 10;
+  margin: -24px -24px 0 -24px;
+  padding: 10px 24px;
+  background: #FFF;
+  border-bottom: 1px solid #EAEAEA;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.prep-control-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prep-status-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.prep-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FF5722;
+  animation: pulse 1s infinite;
+}
+
+.prep-failed .prep-dot {
+  background: #F56C6C;
+  animation: none;
+}
+
+.prep-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.prep-progress-track {
+  flex: 1;
+  height: 4px;
+  background: #F0F0F0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.prep-progress-fill {
+  height: 100%;
+  background: #FF5722;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.prep-stop-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: #DC2626;
+  color: #FFF;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.prep-stop-btn:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
+.prep-stop-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prep-retry-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: #FF5722;
+  color: #FFF;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.prep-retry-btn:hover:not(:disabled) {
+  background: #E64A19;
+}
+
+.prep-retry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Step Card */

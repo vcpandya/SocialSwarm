@@ -21,7 +21,7 @@ class ProxyDataLoader:
     """Loads and provides proxy datasets for LLM prompting"""
 
     _instance = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()  # Must be RLock: get_instance() holds lock while calling _load_all() which also acquires it
     _data = {}
 
     @classmethod
