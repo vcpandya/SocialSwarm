@@ -136,6 +136,38 @@
             </svg>
           </button>
 
+          <!-- Download Report Buttons -->
+          <div v-if="isComplete && reportId" class="download-bar">
+            <span class="download-label">{{ $t('step4.downloadReport') }}:</span>
+            <button class="download-btn download-pdf" @click="downloadReport('pdf')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <polyline points="9 15 12 18 15 15"></polyline>
+              </svg>
+              PDF
+            </button>
+            <button class="download-btn download-docx" @click="downloadReport('docx')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <polyline points="9 15 12 18 15 15"></polyline>
+              </svg>
+              DOCX
+            </button>
+            <button class="download-btn download-md" @click="downloadReport('md')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <polyline points="9 15 12 18 15 15"></polyline>
+              </svg>
+              Markdown
+            </button>
+          </div>
+
           <!-- Dashboard Link -->
           <router-link v-if="isComplete && simulationId" :to="`/dashboard/${simulationId}`" class="dashboard-link">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -442,7 +474,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, getReportDownloadUrl } from '../api/report'
 import { renderMarkdown, sanitizeHtml } from '../utils/markdown'
 import axios from 'axios'
 
@@ -462,6 +494,12 @@ const goToInteraction = () => {
   if (props.reportId) {
     router.push({ name: 'Interaction', params: { reportId: props.reportId } })
   }
+}
+
+// Download report
+const downloadReport = (format) => {
+  const url = getReportDownloadUrl(props.reportId, format)
+  window.open(url, '_blank')
 }
 
 // State
@@ -3446,6 +3484,56 @@ watch(() => props.reportId, (newId) => {
   background: rgba(108, 92, 231, 0.15);
   border-color: rgba(108, 92, 231, 0.4);
   color: #7c6df7;
+}
+
+/* Download Bar */
+.download-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(30, 30, 40, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.download-label {
+  font-size: 12px;
+  color: #9CA3AF;
+  white-space: nowrap;
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #D1D5DB;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.download-pdf:hover { border-color: rgba(239, 68, 68, 0.5); color: #f87171; }
+.download-docx:hover { border-color: rgba(59, 130, 246, 0.5); color: #60a5fa; }
+.download-md:hover { border-color: rgba(34, 197, 94, 0.5); color: #4ade80; }
+
+.download-btn svg {
+  opacity: 0.7;
+}
+
+.download-btn:hover svg {
+  opacity: 1;
 }
 
 /* Workflow Empty */

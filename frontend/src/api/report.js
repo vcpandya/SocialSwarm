@@ -49,3 +49,14 @@ export const getReport = (reportId) => {
 export const chatWithReport = (data) => {
   return requestWithRetry(() => service.post('/api/report/chat', data), 3, 1000)
 }
+
+/**
+ * Get report download URL by format
+ * @param {string} reportId
+ * @param {'pdf'|'docx'|'md'} format
+ * @returns {string} URL for browser download
+ */
+export const getReportDownloadUrl = (reportId, format) => {
+  if (format === 'md') return `/api/report/${reportId}/download`
+  return `/api/report/${reportId}/download/${format}`
+}

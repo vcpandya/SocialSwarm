@@ -336,7 +336,8 @@
   },
   "step4": {
     "generatingSection": "Generating {section}...",
-    "enterDeepInteraction": "Enter Deep Interaction"
+    "enterDeepInteraction": "Enter Deep Interaction",
+    "downloadReport": "Download Report"
   },
   "step5": {
     "chatWithReportAgent": "Chat with Report Agent",

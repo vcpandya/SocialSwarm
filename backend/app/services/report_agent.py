@@ -607,7 +607,14 @@ Please examine this future rehearsal from a "God's-eye view":
 
 Design the most appropriate report section structure based on the prediction results.
 
-[Reminder] Report section count: minimum 2, maximum 5. Content should be concise and focused on core predictive findings."""
+[Reminder] Report section count: minimum 2, maximum 5. Content should be concise and focused on core predictive findings.
+
+[Critical: Topic Specificity]
+- Section titles MUST reference specific entities, stakeholders, or events from the simulation facts above — not generic categories
+- Do NOT use generic section titles like "Public Sentiment Analysis", "Media Influence", or "Future Risks and Challenges"
+- Instead use specific titles that name the actors and events, e.g. "Student Coalition Response to the Orion Robot Controversy" or "Faculty Trust Crisis After Professor Dismissal"
+- A reader should be able to identify the exact topic from the section titles alone
+- Each section description must identify which specific entities/facts it will analyze"""
 
 # ── Section Generation Prompt ──
 
@@ -763,7 +770,12 @@ Strictly prohibited:
    ```
 5. Maintain logical coherence with other sections
 6. [Avoid Repetition] Carefully read the completed section content below; do not repeat the same information
-7. [Emphasis] Do not add any headings! Use **bold text** instead of subsection headings"""
+7. [Emphasis] Do not add any headings! Use **bold text** instead of subsection headings
+8. [Specificity Over Generality]
+   - Name specific agents, entities, and events — never refer to "stakeholders" or "the community" generically
+   - Include specific numbers, percentages, and counts from tool results when available
+   - Quote the most distinctive/surprising agent statements, not the most generic ones
+   - If multiple agents expressed similar views, pick the most vivid/specific quote, not the most bland"""
 
 SECTION_USER_PROMPT_TEMPLATE = """\
 Completed section content (please read carefully to avoid repetition):
@@ -1169,7 +1181,7 @@ class ReportAgent:
             total_edges=context.get('graph_statistics', {}).get('total_edges', 0),
             entity_types=list(context.get('graph_statistics', {}).get('entity_types', {}).keys()),
             total_entities=context.get('total_entities', 0),
-            related_facts_json=json.dumps(context.get('related_facts', [])[:10], ensure_ascii=False, indent=2),
+            related_facts_json=json.dumps(context.get('related_facts', [])[:30], ensure_ascii=False, indent=2),
         )
 
         try:

@@ -436,6 +436,67 @@ def download_report(report_id: str):
         }), 500
 
 
+@report_bp.route('/<report_id>/download/pdf', methods=['GET'])
+def download_report_pdf(report_id: str):
+    """Download report as formatted PDF"""
+    try:
+        report = ReportManager.get_report(report_id)
+        if not report:
+            return jsonify({"success": False, "error": f"Report not found: {report_id}"}), 404
+
+        md_content = _get_report_markdown(report_id, report)
+        if not md_content:
+            return jsonify({"success": False, "error": "Report has no content"}), 404
+
+        from ..services.report_exporter import export_to_pdf
+        pdf_path = export_to_pdf(md_content, title=getattr(report, 'title', 'Report'))
+
+        return send_file(
+            pdf_path,
+            as_attachment=True,
+            download_name=f"{report_id}_report.pdf",
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        logger.error(f"Failed to export PDF: {str(e)}")
+        return jsonify({"success": False, "error": str(e), "traceback": traceback.format_exc()}), 500
+
+
+@report_bp.route('/<report_id>/download/docx', methods=['GET'])
+def download_report_docx(report_id: str):
+    """Download report as formatted DOCX"""
+    try:
+        report = ReportManager.get_report(report_id)
+        if not report:
+            return jsonify({"success": False, "error": f"Report not found: {report_id}"}), 404
+
+        md_content = _get_report_markdown(report_id, report)
+        if not md_content:
+            return jsonify({"success": False, "error": "Report has no content"}), 404
+
+        from ..services.report_exporter import export_to_docx
+        docx_path = export_to_docx(md_content, title=getattr(report, 'title', 'Report'))
+
+        return send_file(
+            docx_path,
+            as_attachment=True,
+            download_name=f"{report_id}_report.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    except Exception as e:
+        logger.error(f"Failed to export DOCX: {str(e)}")
+        return jsonify({"success": False, "error": str(e), "traceback": traceback.format_exc()}), 500
+
+
+def _get_report_markdown(report_id: str, report) -> str:
+    """Get markdown content from file or report object."""
+    md_path = ReportManager._get_report_markdown_path(report_id)
+    if os.path.exists(md_path):
+        with open(md_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    return getattr(report, 'markdown_content', '') or ''
+
+
 @report_bp.route('/<report_id>', methods=['DELETE'])
 def delete_report(report_id: str):
     """Delete report"""

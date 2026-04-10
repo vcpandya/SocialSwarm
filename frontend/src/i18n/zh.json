@@ -336,7 +336,8 @@
   },
   "step4": {
     "generatingSection": "正在生成{section}...",
-    "enterDeepInteraction": "进入深度互动"
+    "enterDeepInteraction": "进入深度互动",
+    "downloadReport": "下载报告"
   },
   "step5": {
     "chatWithReportAgent": "与Report Agent对话",
